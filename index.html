@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alpaka-Glanz: Dein Zahnputz-Buddy</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#F0F4F8">
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- Startbildschirm -->
+        <section id="screen-start" class="screen active">
+            <div class="alpaka-container" id="alpaka-intro">
+                <!-- SVG Alpaka -->
+                <svg viewBox="0 0 200 200" class="alpaka-svg">
+                    <circle cx="100" cy="110" r="70" fill="#FFF5E1" /> <!-- Körper -->
+                    <circle cx="100" cy="70" r="45" fill="#FFF5E1" /> <!-- Kopf -->
+                    <circle cx="85" cy="65" r="5" fill="#333" /> <!-- Auge L -->
+                    <circle cx="115" cy="65" r="5" fill="#333" /> <!-- Auge R -->
+                    <path d="M 90 85 Q 100 95 110 85" fill="none" stroke="#FFB6C1" stroke-width="3" stroke-linecap="round" /> <!-- Mund -->
+                    <rect x="75" y="25" width="15" height="30" rx="7" fill="#FFF5E1" transform="rotate(-15 75 25)" /> <!-- Ohr L -->
+                    <rect x="110" y="25" width="15" height="30" rx="7" fill="#FFF5E1" transform="rotate(15 110 25)" /> <!-- Ohr R -->
+                </svg>
+            </div>
+            <h1>Hallo! Ich bin Alpi.</h1>
+            <p>Wie heißt du?</p>
+            <input type="text" id="child-name" placeholder="Dein Name" maxlength="12">
+            <button id="btn-start" class="btn-main">Zähne putzen!</button>
+        </section>
+
+        <!-- Haupt-Putz-Bildschirm -->
+        <section id="screen-timer" class="screen">
+            <div class="status-bar">
+                <div id="progress-dots"></div>
+            </div>
+
+            <div class="instruction-box">
+                <h2 id="instruction-text">Bist du bereit?</h2>
+                <div id="timer-display">03:00</div>
+            </div>
+
+            <div class="visual-guide">
+                <!-- Einfache Zahn-Grafik zur Orientierung -->
+                <svg viewBox="0 0 100 60" class="teeth-svg">
+                    <path id="zone-oben" d="M 20 20 Q 50 10 80 20" fill="none" stroke="#DDD" stroke-width="8" stroke-linecap="round" />
+                    <path id="zone-unten" d="M 20 40 Q 50 50 80 40" fill="none" stroke="#DDD" stroke-width="8" stroke-linecap="round" />
+                </svg>
+                <p id="zone-label">Gleich geht's los!</p>
+            </div>
+
+            <div class="alpaka-mini-container">
+                <div id="speech-bubble" class="bubble">Schnapp dir deine Bürste!</div>
+                <div class="alpaka-mini">
+                    <!-- Kleines Alpaka-Icon -->
+                    <svg viewBox="0 0 200 200" width="120">
+                        <circle cx="100" cy="110" r="70" fill="#FFF5E1" />
+                        <circle cx="100" cy="70" r="45" fill="#FFF5E1" />
+                        <circle cx="85" cy="65" r="5" fill="#333" />
+                        <circle cx="115" cy="65" r="5" fill="#333" />
+                        <path id="alpaka-mouth" d="M 90 85 Q 100 95 110 85" fill="none" stroke="#FFB6C1" stroke-width="3" />
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- Belohnungsbildschirm -->
+        <section id="screen-finish" class="screen">
+            <div class="confetti">✨ 🌟 ✨</div>
+            <h1>Super gemacht, <span class="user-name"></span>!</h1>
+            <p>Deine Zähne funkeln wie Sterne!</p>
+            <div class="alpaka-happy">🦙</div>
+            <button id="btn-restart" class="btn-main">Bis zum nächsten Mal!</button>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
