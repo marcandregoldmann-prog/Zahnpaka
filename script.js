@@ -182,6 +182,56 @@ const soundManager = {
 };
 
 /* ============================================
+   TEXT-TO-SPEECH MANAGER (ResponsiveVoice)
+   ============================================ */
+const ttsManager = {
+    voice: 'German Female',
+    enabled: false,
+
+    init() {
+        // Check if ResponsiveVoice is loaded
+        if (typeof responsiveVoice !== 'undefined') {
+            this.enabled = true;
+            // Ensure audio context is ready (iOS requirement)
+            soundManager._ensureCtx();
+        }
+    },
+
+    speak(text) {
+        // Filter emoji for cleaner speech
+        const textToSpeak = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+        if (!textToSpeak || !this.enabled || !state.soundEnabled) return;
+
+        // Cancel any previous speech
+        try {
+            if (typeof responsiveVoice !== 'undefined') {
+                responsiveVoice.cancel();
+            }
+        } catch (e) {}
+
+        // Speak with German female voice
+        try {
+            if (typeof responsiveVoice !== 'undefined') {
+                responsiveVoice.speak(textToSpeak, this.voice, {
+                    rate: 0.9,
+                    pitch: 1.0,
+                });
+            }
+        } catch (e) {
+            console.warn('TTS error:', e);
+        }
+    },
+
+    cancel() {
+        if (this.enabled && typeof responsiveVoice !== 'undefined') {
+            try {
+                responsiveVoice.cancel();
+            } catch (e) {}
+        }
+    }
+};
+
+/* ============================================
    ALPAKA-EXPRESSION-SYSTEM
    ============================================ */
 const expressions = {
@@ -254,6 +304,9 @@ function setSpeechBubble(text) {
     void el.offsetWidth;
     el.innerText = text;
     el.classList.add('bubble-new');
+
+    // Speak the text with TTS
+    ttsManager.speak(text);
 }
 
 /* ============================================
@@ -448,6 +501,10 @@ function finish() {
         }
     });
 
+    // Announce completion with personalized message
+    const congratsText = `Super gemacht, ${state.name}! Deine Zähne funkeln wie Sterne!`;
+    ttsManager.speak(congratsText);
+
     showScreen('screen-finish');
     soundManager.celebration();
     spawnConfetti();
@@ -489,6 +546,9 @@ function showIntroStep(step) {
     if (!data) return;
 
     document.getElementById('intro-text').textContent = data.text;
+
+    // Speak intro text with TTS
+    ttsManager.speak(data.text);
 
     // Punkte aktualisieren
     document.querySelectorAll('.intro-dot').forEach((dot, i) => {
@@ -584,3 +644,13 @@ if ('serviceWorker' in navigator) {
         });
     });
 }
+
+// Initialize Text-to-Speech (ResponsiveVoice)
+window.addEventListener('load', () => {
+    ttsManager.init();
+});
+
+// Ensure TTS is ready on first user interaction (iOS requirement)
+document.addEventListener('click', () => {
+    ttsManager.init();
+}, { once: true });
