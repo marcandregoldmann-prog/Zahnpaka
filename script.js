@@ -188,27 +188,101 @@ const soundManager = {
 };
 
 /* ============================================
-   TEXT-TO-SPEECH MANAGER (Click-to-Speak)
-   Sprachausgabe nur auf Klick der Sprechblase –
-   das löst das Mobile-Audioproblem fundamental,
-   weil der Klick selbst die Browser-Audiofreigabe auslöst.
+   TEXT-TO-SPEECH MANAGER (Coqui/Piper WASM)
+   Lokale Sprachsynthese im Browser - funktioniert
+   offline und zuverlässig auf mobilen Geräten!
    ============================================ */
+
+let piperReady = false;
+let piperModule = null;
+let currentAudio = null;
+
 const ttsManager = {
-    speak(text) {
-        const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
-        if (!clean || !state.soundEnabled) return;
-        if (typeof responsiveVoice === 'undefined') return;
+    voiceId: 'de_DE-thorsten-medium',
+
+    // Initialisierung: Model herunterladen + Piper laden
+    async init() {
+        if (piperReady) return true;
+
         try {
-            responsiveVoice.cancel();
-            responsiveVoice.speak(clean, 'German Female', { rate: 0.9, pitch: 1.0 });
-        } catch (e) { /* silent fallback */ }
-    },
-    cancel() {
-        if (typeof responsiveVoice !== 'undefined') {
-            try { responsiveVoice.cancel(); } catch (e) { /* noop */ }
+            console.log('[Piper] Starte Initialisierung...');
+
+            // Dynamischer Import von Piper TTS Web
+            piperModule = await import('@mintplex-labs/piper-tts-web');
+            console.log('[Piper] Modul geladen');
+
+            // Model herunterladen/cachen
+            await piperModule.downloadModelIfNeeded(this.voiceId);
+            console.log('[Piper] Model erfolgreich geladen');
+
+            piperReady = true;
+            return true;
+        } catch (e) {
+            console.error('[Piper] Init fehlgeschlagen:', e.message);
+            return false;
         }
     },
+
+    // Sprachausgabe: Lokale Synthese + Playback
+    async speak(text) {
+        const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+
+        if (!clean || !state.soundEnabled) return;
+        if (!piperReady) {
+            console.warn('[Piper] TTS nicht initialisiert, versuche zu initialisieren...');
+            const initSuccess = await this.init();
+            if (!initSuccess) return;
+        }
+
+        // Vorherige Wiedergabe stoppen
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+
+        try {
+            console.log('[Piper] Spreche:', clean.substring(0, 60));
+
+            // WASM-Synthese: Text → WAV-Audioformat
+            const wav = await piperModule.predict({
+                text: clean,
+                voiceId: this.voiceId
+            });
+
+            // Blob → Audio-URL → Playback
+            const audioUrl = URL.createObjectURL(wav);
+            currentAudio = new Audio(audioUrl);
+            currentAudio.play();
+
+            // Cleanup nach Wiedergabe
+            currentAudio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                currentAudio = null;
+            };
+
+        } catch (e) {
+            console.error('[Piper] Sprachausgabe fehlgeschlagen:', e.message);
+        }
+    },
+
+    cancel() {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+    },
+
+    getStatus() {
+        return {
+            ready: piperReady,
+            voiceId: this.voiceId,
+            currentlyPlaying: currentAudio && !currentAudio.paused
+        };
+    }
 };
+
+// Exposieren für DevTools-Debugging
+window.getTTSStatus = () => ttsManager.getStatus();
 
 /* ============================================
    BUDDY-SYSTEM: Charakter-Auswahl
@@ -855,16 +929,51 @@ document.getElementById('btn-mute').addEventListener('click', () => {
     soundManager._ensureCtx();
 });
 
-// Start-Button → Buddy-Auswahl
-document.getElementById('btn-start').addEventListener('click', () => {
+// Download-Screen anzeigen und Model laden
+async function showDownloadScreen() {
+    showScreen('screen-download');
+
+    // Versuche Piper zu initialisieren
+    try {
+        const success = await ttsManager.init();
+        if (success) {
+            // Model geladen - zu Buddy-Auswahl
+            setTimeout(() => {
+                document.querySelectorAll('.buddy-card').forEach(card => {
+                    card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+                });
+                showScreen('screen-buddy');
+            }, 500);
+        } else {
+            // Fehler - aber trotzdem weiter (Fallback)
+            console.warn('[Download] Fehler beim Laden, fahre fort ohne TTS');
+            setTimeout(() => {
+                document.querySelectorAll('.buddy-card').forEach(card => {
+                    card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+                });
+                showScreen('screen-buddy');
+            }, 2000);
+        }
+    } catch (e) {
+        console.error('[Download] Exception:', e);
+        // Fallback: Trotzdem weiter
+        setTimeout(() => {
+            document.querySelectorAll('.buddy-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+            });
+            showScreen('screen-buddy');
+        }, 2000);
+    }
+}
+
+// Start-Button → Model-Download-Screen
+document.getElementById('btn-start').addEventListener('click', async () => {
     const nameInput = document.getElementById('child-name').value.trim();
     if (nameInput) state.name = nameInput;
     soundManager._ensureCtx();
-    // Vorausgewählten Buddy hervorheben
-    document.querySelectorAll('.buddy-card').forEach(card => {
-        card.classList.toggle('selected', card.dataset.buddy === state.buddy);
-    });
-    showScreen('screen-buddy');
+
+    // Zeige Download-Screen und lade Model
+    await showDownloadScreen();
 });
 
 // Enter im Name-Feld
@@ -930,11 +1039,20 @@ document.getElementById('btn-buddy-confirm').addEventListener('click', () => {
 
 // Click-to-Speak: Klick auf jede Sprechblase liest den Text vor
 // Der Klick selbst entsperrt das Audio auf Mobile (Browser-Pflicht erfüllt)
-document.querySelectorAll('.bubble').forEach(bubble => {
-    bubble.addEventListener('click', () => {
-        ttsManager.speak(bubble.textContent);
+function setupBubbleListeners() {
+    document.querySelectorAll('.bubble').forEach(bubble => {
+        bubble.style.cursor = 'pointer';
+        bubble.addEventListener('click', () => {
+            // Text aus Span-Elementen auslesen
+            const textEl = bubble.querySelector('#speech-text') || bubble.querySelector('#intro-text');
+            const text = textEl ? textEl.textContent : bubble.textContent;
+            ttsManager.speak(text);
+        });
     });
-});
+}
+
+// Initial Setup
+setupBubbleListeners();
 
 // Initiales Rendering des gespeicherten Buddys
 renderBuddy();
