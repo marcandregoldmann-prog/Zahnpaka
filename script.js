@@ -215,19 +215,27 @@ const ttsManager = {
 
         const timeout = (window.RV_LOAD_STATE && window.RV_LOAD_STATE.CDN_TIMEOUT) || 8000;
         const startTime = Date.now();
+        let resolved = false;
 
         return new Promise((resolve) => {
             const timeoutId = setTimeout(() => {
-                console.error('[TTS] CDN timeout after ' + timeout + 'ms');
-                if (window.RV_LOAD_STATE) window.RV_LOAD_STATE.error = 'CDN timeout';
-                resolve(false);
+                if (!resolved) {
+                    resolved = true;
+                    clearInterval(pollId);
+                    console.error('[TTS] CDN timeout after ' + timeout + 'ms');
+                    if (window.RV_LOAD_STATE) window.RV_LOAD_STATE.error = 'CDN timeout';
+                    resolve(false);
+                }
             }, timeout);
 
             const handleLoaded = () => {
-                clearTimeout(timeoutId);
-                clearInterval(pollId);
-                console.log('[TTS] Library ready after ' + (Date.now() - startTime) + 'ms');
-                resolve(true);
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeoutId);
+                    clearInterval(pollId);
+                    console.log('[TTS] Library ready after ' + (Date.now() - startTime) + 'ms');
+                    resolve(true);
+                }
             };
 
             // Listen for ResponsiveVoice ready event
@@ -432,8 +440,8 @@ function setSpeechBubble(text) {
     el.innerText = text;
     el.classList.add('bubble-new');
 
-    // Speak the text with TTS
-    ttsManager.speak(text);
+    // Speak the text with TTS (non-blocking)
+    ttsManager.speak(text).catch(e => console.warn('[TTS] speak() error:', e));
 }
 
 /* ============================================
@@ -628,9 +636,9 @@ function finish() {
         }
     });
 
-    // Announce completion with personalized message
+    // Announce completion with personalized message (non-blocking)
     const congratsText = `Super gemacht, ${state.name}! Deine Zähne funkeln wie Sterne!`;
-    ttsManager.speak(congratsText);
+    ttsManager.speak(congratsText).catch(e => console.warn('[TTS] speak() error:', e));
 
     showScreen('screen-finish');
     soundManager.celebration();
@@ -674,8 +682,8 @@ function showIntroStep(step) {
 
     document.getElementById('intro-text').textContent = data.text;
 
-    // Speak intro text with TTS
-    ttsManager.speak(data.text);
+    // Speak intro text with TTS (non-blocking)
+    ttsManager.speak(data.text).catch(e => console.warn('[TTS] speak() error:', e));
 
     // Punkte aktualisieren
     document.querySelectorAll('.intro-dot').forEach((dot, i) => {
@@ -779,19 +787,21 @@ if ('serviceWorker' in navigator) {
 // Trigger 1: ResponsiveVoice-Event (zuverlässigster Weg)
 window.addEventListener('responsivevoiceready', () => {
     console.log('[TTS] responsivevoiceready event fired');
-    ttsManager.init();
+    ttsManager.init().catch(e => console.warn('[TTS] Init error:', e));
 });
 
 // Trigger 2: Window-Load + 500ms Puffer (CDN-Ladezeit)
 window.addEventListener('load', () => {
     console.log('[TTS] window.load fired');
-    setTimeout(() => ttsManager.init(), 500);
+    setTimeout(() => {
+        ttsManager.init().catch(e => console.warn('[TTS] Init error:', e));
+    }, 500);
 });
 
 // Trigger 3: Erste Nutzer-Interaktion (Android/iOS Audio-Freigabe)
 document.addEventListener('click', () => {
     console.log('[TTS] First user interaction');
-    ttsManager.init();
+    ttsManager.init().catch(e => console.warn('[TTS] Init error:', e));
 }, { once: true });
 
 // Debug: getTTSStatus() in der Konsole eingeben
