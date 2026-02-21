@@ -393,7 +393,7 @@ input[type="text"]:focus {
     flex-shrink: 0;
 }
 
-/* Sprechblase über Alpi */
+/* Sprechblase: Klick zum Vorlesen */
 .bubble {
     background: linear-gradient(135deg, #F0F8FF 0%, #EAF5FF 100%);
     padding: 12px 18px;
@@ -407,7 +407,19 @@ input[type="text"]:focus {
     max-width: 280px;
     line-height: 1.35;
     box-shadow: 0 3px 10px rgba(163, 216, 244, 0.2);
-    transition: opacity 0.3s;
+    transition: opacity 0.3s, transform 0.1s;
+    cursor: pointer;
+    user-select: none;
+}
+.bubble:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+}
+.bubble-speaker {
+    font-size: 0.8em;
+    opacity: 0.6;
+    margin-left: 6px;
+    vertical-align: middle;
 }
 
 /* Sprechblase – Pfeil nach unten (zeigt auf Alpi) */
@@ -603,4 +615,77 @@ input[type="text"]:focus {
     .alpaka-large   { width: 130px; height: 142px; }
     .status-bar     { padding: 6px 0 4px; }
     .progress-dot   { width: 11px; height: 11px; }
+}
+
+/* ============================================
+   BUDDY-AUSWAHL-SCREEN
+   ============================================ */
+
+.buddy-grid {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 16px 0 20px;
+    flex-wrap: nowrap;
+}
+
+.buddy-card {
+    background: #f8f9fa;
+    border: 3px solid #E0E8F0;
+    border-radius: 20px;
+    padding: 12px 8px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #555;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.buddy-card:hover {
+    border-color: var(--primary);
+    background: #f0f9ff;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(163, 216, 244, 0.35);
+}
+
+.buddy-card.selected {
+    border-color: var(--primary);
+    background: #E6F6FF;
+    transform: scale(1.06);
+    box-shadow: 0 6px 20px rgba(163, 216, 244, 0.5);
+}
+
+.buddy-preview {
+    width: 72px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.buddy-preview svg {
+    width: 72px;
+    height: 80px;
+}
+
+.finish-buddy-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+#buddy-container-brushing {
+    display: flex;
+    justify-content: center;
+}
+
+/* Start-Screen Buddy-Container: floatende Animation wie vorher */
+#buddy-container-start svg.alpaka-svg:not(.alpaka-large):not(.alpaka-celebrate) {
+    animation: alpiFloat 3s ease-in-out infinite;
 }

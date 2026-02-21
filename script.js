@@ -8,6 +8,7 @@
 /* ---- APP-ZUSTAND ---- */
 const state = {
     name: 'Held',
+    buddy: localStorage.getItem('zahnpaka-buddy') || 'alpaka',
     timer: 180,
     interval: null,
     currentPhaseIndex: -1,
@@ -99,7 +100,7 @@ const encouragementMessages = {
     byName: (name) => [
         `${name}, du bist fantastisch! 🎉`,
         `${name}, so saubere Zähne! ⭐`,
-        `${name}, Alpi ist so stolz! 🦙`,
+        `${name}, dein Freund ist so stolz! ❤️`,
     ],
 };
 
@@ -110,7 +111,7 @@ const introTexts = [
         dot:  0,
     },
     {
-        text: '🦙 Alpi erklärt: „Wir putzen, damit die Zahnteufel keine Party machen können!"',
+        text: '[BUDDY] erklärt: „Wir putzen, damit die Zahnteufel keine Party machen können!"',
         dot:  1,
     },
     {
@@ -187,184 +188,318 @@ const soundManager = {
 };
 
 /* ============================================
-   TEXT-TO-SPEECH MANAGER (ResponsiveVoice)
+   TEXT-TO-SPEECH MANAGER (Click-to-Speak)
+   Sprachausgabe nur auf Klick der Sprechblase –
+   das löst das Mobile-Audioproblem fundamental,
+   weil der Klick selbst die Browser-Audiofreigabe auslöst.
    ============================================ */
 const ttsManager = {
-    state: {
-        status: 'pending',      // pending → ready → failed
-        voice: 'German Female',
-        enabled: false,
-        availableVoices: [],
-        initAttempts: 0,
-        maxRetries: 5,
-    },
-
-    // Wait for ResponsiveVoice library (polling + timeout)
-    loadResponsiveVoice() {
-        console.log('[TTS] Starting load detection...');
-
-        if (window.RV_LOAD_STATE && window.RV_LOAD_STATE.loaded) {
-            console.log('[TTS] ResponsiveVoice already loaded');
-            return Promise.resolve(true);
-        }
-
-        if (typeof responsiveVoice !== 'undefined') {
-            console.log('[TTS] responsiveVoice global already present');
-            return Promise.resolve(true);
-        }
-
-        const timeout = (window.RV_LOAD_STATE && window.RV_LOAD_STATE.CDN_TIMEOUT) || 8000;
-        const startTime = Date.now();
-        let resolved = false;
-
-        return new Promise((resolve) => {
-            const timeoutId = setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    clearInterval(pollId);
-                    console.error('[TTS] CDN timeout after ' + timeout + 'ms');
-                    if (window.RV_LOAD_STATE) window.RV_LOAD_STATE.error = 'CDN timeout';
-                    resolve(false);
-                }
-            }, timeout);
-
-            const handleLoaded = () => {
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timeoutId);
-                    clearInterval(pollId);
-                    console.log('[TTS] Library ready after ' + (Date.now() - startTime) + 'ms');
-                    resolve(true);
-                }
-            };
-
-            // Listen for ResponsiveVoice ready event
-            window.addEventListener('responsivevoiceready', handleLoaded, { once: true });
-
-            // Also poll – some browsers miss the event
-            const pollId = setInterval(() => {
-                if (typeof responsiveVoice !== 'undefined') {
-                    handleLoaded();
-                }
-            }, 150);
-        });
-    },
-
-    // Select best available German voice with fallback
-    selectVoice() {
-        if (typeof responsiveVoice === 'undefined') return false;
-        try {
-            const voices = responsiveVoice.getVoices() || [];
-            console.log('[TTS] Available voices: ' + voices.map(v => v.name).join(', '));
-
-            const preference = [
-                v => v.name === 'German Female',
-                v => v.name === 'German Male',
-                v => v.name.includes('German'),
-                v => v.name.includes('English') && v.name.includes('Female'),
-                () => true,
-            ];
-
-            for (const test of preference) {
-                const match = voices.find(test);
-                if (match) {
-                    if (match.name !== 'German Female') {
-                        console.warn('[TTS] German Female unavailable, using: ' + match.name);
-                    }
-                    this.state.voice = match.name;
-                    return true;
-                }
-            }
-            console.error('[TTS] No voices available at all');
-            return false;
-        } catch (e) {
-            console.error('[TTS] Voice selection error: ' + e.message);
-            // Fall back to hardcoded name – ResponsiveVoice handles unknown voices gracefully
-            this.state.voice = 'German Female';
-            return true;
-        }
-    },
-
-    // Main init with retry logic
-    async init() {
-        if (this.state.status === 'ready') return true;
-
-        this.state.initAttempts++;
-        console.log('[TTS] Init attempt ' + this.state.initAttempts + '/' + this.state.maxRetries);
-
-        const libLoaded = await this.loadResponsiveVoice();
-        if (!libLoaded) {
-            if (this.state.initAttempts < this.state.maxRetries) {
-                const delay = Math.min(1000 * Math.pow(2, this.state.initAttempts - 1), 10000);
-                console.log('[TTS] Retrying in ' + delay + 'ms');
-                setTimeout(() => this.init(), delay);
-            }
-            return false;
-        }
-
-        this.selectVoice();
-        this.state.status = 'ready';
-        this.state.enabled = true;
-        console.log('[TTS] Ready. Voice: ' + this.state.voice);
-        return true;
-    },
-
-    // Speak with full error handling
-    async speak(text) {
+    speak(text) {
         const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
-        if (!clean) return;
-        if (!state.soundEnabled) return;
-
-        // Auto-init if still pending
-        if (this.state.status === 'pending') {
-            await this.init();
-        }
-
-        if (!this.state.enabled || typeof responsiveVoice === 'undefined') {
-            console.warn('[TTS] Not available (enabled=' + this.state.enabled +
-                ', rvDefined=' + (typeof responsiveVoice !== 'undefined') + ')');
-            return;
-        }
-
-        this.cancel();
-
-        try {
-            console.log('[TTS] Speaking (' + this.state.voice + '): "' + clean.substring(0, 60) + '"');
-            responsiveVoice.speak(clean, this.state.voice, {
-                rate: 0.9,
-                pitch: 1.0,
-                onstart: () => console.log('[TTS] Speech started'),
-                onend:   () => console.log('[TTS] Speech ended'),
-                onerror: (err) => {
-                    console.error('[TTS] Speech error:', err);
-                    // Force re-init on next speak attempt
-                    this.state.status = 'pending';
-                    this.state.enabled = false;
-                },
-            });
-        } catch (e) {
-            console.error('[TTS] Exception: ' + e.message);
-        }
-    },
-
-    cancel() {
+        if (!clean || !state.soundEnabled) return;
         if (typeof responsiveVoice === 'undefined') return;
-        try { responsiveVoice.cancel(); } catch (e) {
-            console.warn('[TTS] Cancel error: ' + e.message);
-        }
+        try {
+            responsiveVoice.cancel();
+            responsiveVoice.speak(clean, 'German Female', { rate: 0.9, pitch: 1.0 });
+        } catch (e) { /* silent fallback */ }
     },
-
-    getStatus() {
-        return {
-            status:   this.state.status,
-            enabled:  this.state.enabled,
-            voice:    this.state.voice,
-            attempts: this.state.initAttempts,
-            cdnError: (window.RV_LOAD_STATE && window.RV_LOAD_STATE.error) || null,
-            rvDefined: typeof responsiveVoice !== 'undefined',
-        };
+    cancel() {
+        if (typeof responsiveVoice !== 'undefined') {
+            try { responsiveVoice.cancel(); } catch (e) { /* noop */ }
+        }
     },
 };
+
+/* ============================================
+   BUDDY-SYSTEM: Charakter-Auswahl
+   ============================================ */
+
+const buddyInfo = {
+    alpaka: { name: 'Alpi',  greeting: 'Hallo! Ich bin Alpi! 🦙' },
+    katze:  { name: 'Mia',   greeting: 'Hallo! Ich bin Mia! 🐱'  },
+    huhn:   { name: 'Hanna', greeting: 'Hallo! Ich bin Hanna! 🐔' },
+};
+
+/* Alle 9 Charakter-SVGs (3 Charaktere × 3 Varianten) */
+const buddySvgs = {
+    alpaka: {
+        idle: `<svg viewBox="0 0 200 220" class="alpaka-svg" aria-label="Alpaka Alpi" role="img">
+<ellipse cx="100" cy="28" rx="32" ry="18" fill="#FFF5E1"/>
+<circle cx="78" cy="26" r="10" fill="#FFF5E1"/><circle cx="122" cy="26" r="10" fill="#FFF5E1"/><circle cx="100" cy="20" r="12" fill="#FFF5E1"/>
+<rect x="68" y="22" width="14" height="28" rx="7" fill="#FFE4B5" transform="rotate(-18 68 22)"/>
+<rect x="118" y="22" width="14" height="28" rx="7" fill="#FFE4B5" transform="rotate(18 118 22)"/>
+<rect x="71" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(-18 71 24)"/>
+<rect x="122" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(18 122 24)"/>
+<ellipse cx="100" cy="78" rx="46" ry="44" fill="#FFF5E1"/>
+<ellipse cx="82" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="84" cy="70" r="4.5" fill="#333"/><circle cx="86" cy="68" r="1.5" fill="#fff"/>
+<ellipse cx="118" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="120" cy="70" r="4.5" fill="#333"/><circle cx="122" cy="68" r="1.5" fill="#fff"/>
+<ellipse cx="100" cy="88" rx="14" ry="9" fill="#FFD4C2"/>
+<circle cx="96" cy="88" r="3" fill="#E88E6A" opacity="0.6"/><circle cx="104" cy="88" r="3" fill="#E88E6A" opacity="0.6"/>
+<path d="M 90 98 Q 100 108 110 98" fill="none" stroke="#E88E6A" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="72" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="128" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="100" cy="165" rx="58" ry="52" fill="#FFF5E1"/>
+<rect x="68" y="195" width="18" height="22" rx="9" fill="#FFE4B5"/>
+<rect x="114" y="195" width="18" height="22" rx="9" fill="#FFE4B5"/>
+<rect x="68" y="212" width="18" height="8" rx="4" fill="#D4A86A"/>
+<rect x="114" y="212" width="18" height="8" rx="4" fill="#D4A86A"/>
+</svg>`,
+
+        brushing: `<svg id="alpaka-brushing" viewBox="0 0 200 220" class="alpaka-svg alpaka-large" aria-label="Alpi motiviert dich" role="img">
+<ellipse cx="100" cy="28" rx="32" ry="18" fill="#FFF5E1"/>
+<circle cx="78" cy="26" r="10" fill="#FFF5E1"/><circle cx="122" cy="26" r="10" fill="#FFF5E1"/><circle cx="100" cy="20" r="12" fill="#FFF5E1"/>
+<rect x="68" y="22" width="14" height="28" rx="7" fill="#FFE4B5" transform="rotate(-18 68 22)"/>
+<rect x="118" y="22" width="14" height="28" rx="7" fill="#FFE4B5" transform="rotate(18 118 22)"/>
+<rect x="71" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(-18 71 24)"/>
+<rect x="122" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(18 122 24)"/>
+<ellipse cx="100" cy="78" rx="46" ry="44" fill="#FFF5E1"/>
+<ellipse cx="82" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="84" cy="70" r="4.5" fill="#333"/><circle cx="86" cy="68" r="1.5" fill="#fff"/>
+<ellipse cx="118" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="120" cy="70" r="4.5" fill="#333"/><circle cx="122" cy="68" r="1.5" fill="#fff"/>
+<ellipse cx="100" cy="88" rx="14" ry="9" fill="#FFD4C2"/>
+<circle cx="96" cy="88" r="3" fill="#E88E6A" opacity="0.6"/><circle cx="104" cy="88" r="3" fill="#E88E6A" opacity="0.6"/>
+<path id="mouth-brushing" d="M 90 98 Q 100 108 110 98" fill="none" stroke="#E88E6A" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="72" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="128" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="100" cy="165" rx="58" ry="52" fill="#FFF5E1"/>
+<rect x="68" y="195" width="18" height="22" rx="9" fill="#FFE4B5"/>
+<rect x="114" y="195" width="18" height="22" rx="9" fill="#FFE4B5"/>
+<rect x="68" y="212" width="18" height="8" rx="4" fill="#D4A86A"/>
+<rect x="114" y="212" width="18" height="8" rx="4" fill="#D4A86A"/>
+<rect x="148" y="130" width="8" height="36" rx="4" fill="#A3D8F4"/>
+<rect x="148" y="130" width="8" height="14" rx="4" fill="#fff" stroke="#A3D8F4" stroke-width="1"/>
+<line x1="150" y1="133" x2="155" y2="140" stroke="#A3D8F4" stroke-width="1.5"/>
+<line x1="154" y1="133" x2="150" y2="140" stroke="#A3D8F4" stroke-width="1.5"/>
+</svg>`,
+
+        celebrate: `<svg viewBox="0 0 200 220" class="alpaka-svg alpaka-celebrate" aria-label="Alpi feiert!" role="img">
+<ellipse cx="100" cy="28" rx="32" ry="18" fill="#FFF5E1"/>
+<circle cx="78" cy="26" r="10" fill="#FFF5E1"/><circle cx="122" cy="26" r="10" fill="#FFF5E1"/><circle cx="100" cy="20" r="12" fill="#FFF5E1"/>
+<rect x="68" y="22" width="14" height="28" rx="7" fill="#FFE4B5" transform="rotate(-18 68 22)"/>
+<rect x="118" y="22" width="14" height="28" rx="7" fill="#FFE4B5" transform="rotate(18 118 22)"/>
+<rect x="71" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(-18 71 24)"/>
+<rect x="122" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(18 122 24)"/>
+<ellipse cx="100" cy="78" rx="46" ry="44" fill="#FFF5E1"/>
+<path d="M 74 68 Q 82 60 90 68" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+<path d="M 110 68 Q 118 60 126 68" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="100" cy="88" rx="14" ry="9" fill="#FFD4C2"/>
+<circle cx="96" cy="88" r="3" fill="#E88E6A" opacity="0.6"/><circle cx="104" cy="88" r="3" fill="#E88E6A" opacity="0.6"/>
+<path d="M 84 98 Q 100 115 116 98" fill="none" stroke="#E88E6A" stroke-width="3.5" stroke-linecap="round"/>
+<ellipse cx="72" cy="82" rx="12" ry="7" fill="#FFB6C1" opacity="0.55"/>
+<ellipse cx="128" cy="82" rx="12" ry="7" fill="#FFB6C1" opacity="0.55"/>
+<text x="42" y="40" font-size="14" aria-hidden="true">⭐</text>
+<text x="145" y="40" font-size="14" aria-hidden="true">⭐</text>
+<text x="93" y="18" font-size="12" aria-hidden="true">✨</text>
+<ellipse cx="100" cy="165" rx="58" ry="52" fill="#FFF5E1"/>
+<ellipse cx="50" cy="140" rx="10" ry="28" fill="#FFE4B5" transform="rotate(-40 50 140)"/>
+<ellipse cx="150" cy="140" rx="10" ry="28" fill="#FFE4B5" transform="rotate(40 150 140)"/>
+<rect x="68" y="195" width="18" height="22" rx="9" fill="#FFE4B5"/>
+<rect x="114" y="195" width="18" height="22" rx="9" fill="#FFE4B5"/>
+<rect x="68" y="212" width="18" height="8" rx="4" fill="#D4A86A"/>
+<rect x="114" y="212" width="18" height="8" rx="4" fill="#D4A86A"/>
+</svg>`,
+    },
+
+    katze: {
+        idle: `<svg viewBox="0 0 200 220" class="alpaka-svg" aria-label="Katze Mia" role="img">
+<path d="M 148 188 Q 176 172 172 148 Q 168 126 182 112" fill="none" stroke="#E8A000" stroke-width="12" stroke-linecap="round"/>
+<polygon points="70,50 58,18 92,42" fill="#FFCD8A"/>
+<polygon points="130,50 142,18 108,42" fill="#FFCD8A"/>
+<polygon points="72,48 64,26 88,42" fill="#FFB6C1"/>
+<polygon points="128,48 136,26 112,42" fill="#FFB6C1"/>
+<ellipse cx="100" cy="78" rx="44" ry="42" fill="#FFCD8A"/>
+<ellipse cx="83" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
+<ellipse cx="83" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="86" cy="64" r="1.8" fill="#fff"/>
+<ellipse cx="117" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
+<ellipse cx="117" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="120" cy="64" r="1.8" fill="#fff"/>
+<polygon points="100,85 95,91 105,91" fill="#FFB6C1"/>
+<path d="M 95 91 Q 91 97 87 95" fill="none" stroke="#C06060" stroke-width="2" stroke-linecap="round"/>
+<path d="M 105 91 Q 109 97 113 95" fill="none" stroke="#C06060" stroke-width="2" stroke-linecap="round"/>
+<line x1="56" y1="82" x2="90" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="54" y1="88" x2="90" y2="90" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="56" y1="94" x2="90" y2="93" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="144" y1="82" x2="110" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="146" y1="88" x2="110" y2="90" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="144" y1="94" x2="110" y2="93" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<ellipse cx="70" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="130" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="100" cy="165" rx="55" ry="50" fill="#FFCD8A"/>
+<ellipse cx="76" cy="213" rx="13" ry="9" fill="#E8A000"/>
+<ellipse cx="124" cy="213" rx="13" ry="9" fill="#E8A000"/>
+</svg>`,
+
+        brushing: `<svg id="alpaka-brushing" viewBox="0 0 200 220" class="alpaka-svg alpaka-large" aria-label="Mia putzt Zähne" role="img">
+<polygon points="70,50 58,18 92,42" fill="#FFCD8A"/>
+<polygon points="130,50 142,18 108,42" fill="#FFCD8A"/>
+<polygon points="72,48 64,26 88,42" fill="#FFB6C1"/>
+<polygon points="128,48 136,26 112,42" fill="#FFB6C1"/>
+<ellipse cx="100" cy="78" rx="44" ry="42" fill="#FFCD8A"/>
+<ellipse cx="83" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
+<ellipse cx="83" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="86" cy="64" r="1.8" fill="#fff"/>
+<ellipse cx="117" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
+<ellipse cx="117" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="120" cy="64" r="1.8" fill="#fff"/>
+<polygon points="100,85 95,91 105,91" fill="#FFB6C1"/>
+<path id="mouth-brushing" d="M 90 98 Q 100 108 110 98" fill="none" stroke="#C06060" stroke-width="3" stroke-linecap="round"/>
+<line x1="56" y1="82" x2="90" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="54" y1="88" x2="90" y2="90" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="56" y1="94" x2="90" y2="93" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="144" y1="82" x2="110" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="146" y1="88" x2="110" y2="90" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="144" y1="94" x2="110" y2="93" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<ellipse cx="70" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="130" cy="82" rx="10" ry="6" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="100" cy="165" rx="55" ry="50" fill="#FFCD8A"/>
+<rect x="70" y="196" width="18" height="22" rx="9" fill="#E8A000"/>
+<rect x="112" y="196" width="18" height="22" rx="9" fill="#E8A000"/>
+<ellipse cx="79" cy="215" rx="11" ry="7" fill="#D09000"/>
+<ellipse cx="121" cy="215" rx="11" ry="7" fill="#D09000"/>
+<rect x="148" y="130" width="8" height="36" rx="4" fill="#A3D8F4"/>
+<rect x="148" y="130" width="8" height="14" rx="4" fill="#fff" stroke="#A3D8F4" stroke-width="1"/>
+<line x1="150" y1="133" x2="155" y2="140" stroke="#A3D8F4" stroke-width="1.5"/>
+<line x1="154" y1="133" x2="150" y2="140" stroke="#A3D8F4" stroke-width="1.5"/>
+</svg>`,
+
+        celebrate: `<svg viewBox="0 0 200 220" class="alpaka-svg alpaka-celebrate" aria-label="Mia feiert!" role="img">
+<polygon points="70,50 58,18 92,42" fill="#FFCD8A"/>
+<polygon points="130,50 142,18 108,42" fill="#FFCD8A"/>
+<polygon points="72,48 64,26 88,42" fill="#FFB6C1"/>
+<polygon points="128,48 136,26 112,42" fill="#FFB6C1"/>
+<ellipse cx="100" cy="78" rx="44" ry="42" fill="#FFCD8A"/>
+<path d="M 74 68 Q 82 60 90 68" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+<path d="M 110 68 Q 118 60 126 68" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+<polygon points="100,85 95,91 105,91" fill="#FFB6C1"/>
+<path d="M 84 98 Q 100 115 116 98" fill="none" stroke="#C06060" stroke-width="3.5" stroke-linecap="round"/>
+<line x1="56" y1="82" x2="90" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="54" y1="88" x2="90" y2="90" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="144" y1="82" x2="110" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="146" y1="88" x2="110" y2="90" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
+<ellipse cx="70" cy="82" rx="12" ry="7" fill="#FFB6C1" opacity="0.55"/>
+<ellipse cx="130" cy="82" rx="12" ry="7" fill="#FFB6C1" opacity="0.55"/>
+<text x="42" y="40" font-size="14" aria-hidden="true">⭐</text>
+<text x="145" y="40" font-size="14" aria-hidden="true">⭐</text>
+<text x="93" y="18" font-size="12" aria-hidden="true">✨</text>
+<ellipse cx="100" cy="165" rx="55" ry="50" fill="#FFCD8A"/>
+<ellipse cx="48" cy="140" rx="12" ry="28" fill="#E8A000" transform="rotate(-40 48 140)"/>
+<ellipse cx="152" cy="140" rx="12" ry="28" fill="#E8A000" transform="rotate(40 152 140)"/>
+<ellipse cx="76" cy="213" rx="13" ry="9" fill="#E8A000"/>
+<ellipse cx="124" cy="213" rx="13" ry="9" fill="#E8A000"/>
+</svg>`,
+    },
+
+    huhn: {
+        idle: `<svg viewBox="0 0 200 220" class="alpaka-svg" aria-label="Huhn Hanna" role="img">
+<ellipse cx="84" cy="32" rx="11" ry="13" fill="#E63A2A"/>
+<ellipse cx="100" cy="24" rx="12" ry="14" fill="#E63A2A"/>
+<ellipse cx="116" cy="32" rx="11" ry="13" fill="#E63A2A"/>
+<ellipse cx="100" cy="76" rx="40" ry="40" fill="#FFE566"/>
+<ellipse cx="84" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="86" cy="67" r="4.5" fill="#333"/><circle cx="88" cy="65" r="1.5" fill="#fff"/>
+<ellipse cx="116" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="118" cy="67" r="4.5" fill="#333"/><circle cx="120" cy="65" r="1.5" fill="#fff"/>
+<polygon points="100,78 89,90 111,90" fill="#FF8C00"/>
+<ellipse cx="100" cy="97" rx="8" ry="6" fill="#E63A2A"/>
+<ellipse cx="71" cy="78" rx="10" ry="7" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="129" cy="78" rx="10" ry="7" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="100" cy="165" rx="56" ry="52" fill="#FFE566"/>
+<ellipse cx="46" cy="158" rx="14" ry="28" fill="#F5D000" transform="rotate(15 46 158)"/>
+<ellipse cx="154" cy="158" rx="14" ry="28" fill="#F5D000" transform="rotate(-15 154 158)"/>
+<rect x="82" y="208" width="12" height="14" rx="4" fill="#FF8C00"/>
+<rect x="106" y="208" width="12" height="14" rx="4" fill="#FF8C00"/>
+<line x1="88" y1="218" x2="78" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="88" y1="218" x2="88" y2="224" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="88" y1="218" x2="98" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="102" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="112" y2="224" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="122" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+</svg>`,
+
+        brushing: `<svg id="alpaka-brushing" viewBox="0 0 200 220" class="alpaka-svg alpaka-large" aria-label="Hanna putzt Zähne" role="img">
+<ellipse cx="84" cy="32" rx="11" ry="13" fill="#E63A2A"/>
+<ellipse cx="100" cy="24" rx="12" ry="14" fill="#E63A2A"/>
+<ellipse cx="116" cy="32" rx="11" ry="13" fill="#E63A2A"/>
+<ellipse cx="100" cy="76" rx="40" ry="40" fill="#FFE566"/>
+<ellipse cx="84" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="86" cy="67" r="4.5" fill="#333"/><circle cx="88" cy="65" r="1.5" fill="#fff"/>
+<ellipse cx="116" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
+<circle cx="118" cy="67" r="4.5" fill="#333"/><circle cx="120" cy="65" r="1.5" fill="#fff"/>
+<polygon points="100,78 89,90 111,90" fill="#FF8C00"/>
+<path id="mouth-brushing" d="M 90 98 Q 100 108 110 98" fill="none" stroke="#FF8C00" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="100" cy="100" rx="7" ry="5" fill="#E63A2A"/>
+<ellipse cx="71" cy="78" rx="10" ry="7" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="129" cy="78" rx="10" ry="7" fill="#FFB6C1" opacity="0.35"/>
+<ellipse cx="100" cy="165" rx="56" ry="52" fill="#FFE566"/>
+<ellipse cx="46" cy="158" rx="14" ry="28" fill="#F5D000" transform="rotate(15 46 158)"/>
+<ellipse cx="154" cy="158" rx="14" ry="28" fill="#F5D000" transform="rotate(-15 154 158)"/>
+<rect x="82" y="208" width="12" height="14" rx="4" fill="#FF8C00"/>
+<rect x="106" y="208" width="12" height="14" rx="4" fill="#FF8C00"/>
+<line x1="88" y1="218" x2="78" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="88" y1="218" x2="88" y2="224" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="88" y1="218" x2="98" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="102" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="112" y2="224" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="122" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<rect x="148" y="130" width="8" height="36" rx="4" fill="#A3D8F4"/>
+<rect x="148" y="130" width="8" height="14" rx="4" fill="#fff" stroke="#A3D8F4" stroke-width="1"/>
+<line x1="150" y1="133" x2="155" y2="140" stroke="#A3D8F4" stroke-width="1.5"/>
+<line x1="154" y1="133" x2="150" y2="140" stroke="#A3D8F4" stroke-width="1.5"/>
+</svg>`,
+
+        celebrate: `<svg viewBox="0 0 200 220" class="alpaka-svg alpaka-celebrate" aria-label="Hanna feiert!" role="img">
+<ellipse cx="84" cy="32" rx="11" ry="13" fill="#E63A2A"/>
+<ellipse cx="100" cy="24" rx="12" ry="14" fill="#E63A2A"/>
+<ellipse cx="116" cy="32" rx="11" ry="13" fill="#E63A2A"/>
+<ellipse cx="100" cy="76" rx="40" ry="40" fill="#FFE566"/>
+<path d="M 76 66 Q 84 58 92 66" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+<path d="M 108 66 Q 116 58 124 66" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+<polygon points="100,78 89,90 111,90" fill="#FF8C00"/>
+<path d="M 84 98 Q 100 115 116 98" fill="none" stroke="#FF8C00" stroke-width="3.5" stroke-linecap="round"/>
+<ellipse cx="100" cy="100" rx="7" ry="5" fill="#E63A2A"/>
+<ellipse cx="71" cy="78" rx="12" ry="7" fill="#FFB6C1" opacity="0.55"/>
+<ellipse cx="129" cy="78" rx="12" ry="7" fill="#FFB6C1" opacity="0.55"/>
+<text x="42" y="40" font-size="14" aria-hidden="true">⭐</text>
+<text x="145" y="40" font-size="14" aria-hidden="true">⭐</text>
+<text x="93" y="18" font-size="12" aria-hidden="true">✨</text>
+<ellipse cx="100" cy="165" rx="56" ry="52" fill="#FFE566"/>
+<ellipse cx="44" cy="140" rx="14" ry="30" fill="#F5D000" transform="rotate(-40 44 140)"/>
+<ellipse cx="156" cy="140" rx="14" ry="30" fill="#F5D000" transform="rotate(40 156 140)"/>
+<rect x="82" y="208" width="12" height="14" rx="4" fill="#FF8C00"/>
+<rect x="106" y="208" width="12" height="14" rx="4" fill="#FF8C00"/>
+<line x1="88" y1="218" x2="78" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="88" y1="218" x2="88" y2="224" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="88" y1="218" x2="98" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="102" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="112" y2="224" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+<line x1="112" y1="218" x2="122" y2="223" stroke="#FF8C00" stroke-width="4" stroke-linecap="round"/>
+</svg>`,
+    },
+};
+
+/* Rendert den gewählten Buddy in alle Screen-Container */
+function renderBuddy() {
+    const buddy = state.buddy;
+    const info  = buddyInfo[buddy];
+
+    const startEl  = document.getElementById('buddy-container-start');
+    const brushEl  = document.getElementById('buddy-container-brushing');
+    const finishEl = document.getElementById('buddy-container-finish');
+
+    if (startEl)  startEl.innerHTML  = buddySvgs[buddy].idle;
+    if (brushEl)  brushEl.innerHTML  = buddySvgs[buddy].brushing;
+    if (finishEl) finishEl.innerHTML = buddySvgs[buddy].celebrate;
+
+    // Begrüßungstext aktualisieren
+    const greetEl = document.getElementById('buddy-greeting');
+    if (greetEl) greetEl.textContent = info.greeting;
+
+    // Buddy-Vorschau-Karten (Auswahl-Screen) befüllen
+    ['alpaka', 'katze', 'huhn'].forEach(id => {
+        const previewEl = document.getElementById('preview-' + id);
+        if (previewEl) previewEl.innerHTML = buddySvgs[id].idle;
+    });
+}
 
 /* ============================================
    ALPAKA-EXPRESSION-SYSTEM
@@ -433,15 +568,17 @@ function triggerAlpacaReaction(type) {
    SPRECHBLASE
    ============================================ */
 function setSpeechBubble(text) {
-    const el = document.getElementById('speech-bubble');
+    const el     = document.getElementById('speech-bubble');
+    const textEl = document.getElementById('speech-text');
     if (!el) return;
     el.classList.remove('bubble-new');
     void el.offsetWidth;
-    el.innerText = text;
+    if (textEl) {
+        textEl.innerText = text;
+    } else {
+        el.innerText = text;
+    }
     el.classList.add('bubble-new');
-
-    // Speak the text with TTS (non-blocking)
-    ttsManager.speak(text).catch(e => console.warn('[TTS] speak() error:', e));
 }
 
 /* ============================================
@@ -636,10 +773,6 @@ function finish() {
         }
     });
 
-    // Announce completion with personalized message (non-blocking)
-    const congratsText = `Super gemacht, ${state.name}! Deine Zähne funkeln wie Sterne!`;
-    ttsManager.speak(congratsText).catch(e => console.warn('[TTS] speak() error:', e));
-
     showScreen('screen-finish');
     soundManager.celebration();
     spawnConfetti();
@@ -680,10 +813,7 @@ function showIntroStep(step) {
     const data = introTexts[step];
     if (!data) return;
 
-    document.getElementById('intro-text').textContent = data.text;
-
-    // Speak intro text with TTS (non-blocking)
-    ttsManager.speak(data.text).catch(e => console.warn('[TTS] speak() error:', e));
+    document.getElementById('intro-text').textContent = data.text.replace('[BUDDY]', buddyInfo[state.buddy].name);
 
     // Punkte aktualisieren
     document.querySelectorAll('.intro-dot').forEach((dot, i) => {
@@ -725,14 +855,16 @@ document.getElementById('btn-mute').addEventListener('click', () => {
     soundManager._ensureCtx();
 });
 
-// Start-Button
+// Start-Button → Buddy-Auswahl
 document.getElementById('btn-start').addEventListener('click', () => {
     const nameInput = document.getElementById('child-name').value.trim();
     if (nameInput) state.name = nameInput;
     soundManager._ensureCtx();
-    showScreen('screen-intro');
-    state.introStep = 0;
-    showIntroStep(0);
+    // Vorausgewählten Buddy hervorheben
+    document.querySelectorAll('.buddy-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+    });
+    showScreen('screen-buddy');
 });
 
 // Enter im Name-Feld
@@ -774,41 +906,35 @@ updateMuteButton();
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {
-            // Service Worker optional – kein Fehler anzeigen
-        });
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
 }
 
-// =============================================
-// TTS INITIALISIERUNG (3 unabhängige Trigger)
-// =============================================
-
-// Trigger 1: ResponsiveVoice-Event (zuverlässigster Weg)
-window.addEventListener('responsivevoiceready', () => {
-    console.log('[TTS] responsivevoiceready event fired');
-    ttsManager.init().catch(e => console.warn('[TTS] Init error:', e));
+// Buddy-Karten: Klick-Handler
+document.querySelectorAll('.buddy-card').forEach(card => {
+    card.addEventListener('click', () => {
+        document.querySelectorAll('.buddy-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        state.buddy = card.dataset.buddy;
+    });
 });
 
-// Trigger 2: Window-Load + 500ms Puffer (CDN-Ladezeit)
-window.addEventListener('load', () => {
-    console.log('[TTS] window.load fired');
-    setTimeout(() => {
-        ttsManager.init().catch(e => console.warn('[TTS] Init error:', e));
-    }, 500);
+// Buddy-Bestätigung
+document.getElementById('btn-buddy-confirm').addEventListener('click', () => {
+    localStorage.setItem('zahnpaka-buddy', state.buddy);
+    renderBuddy();
+    showScreen('screen-intro');
+    state.introStep = 0;
+    showIntroStep(0);
 });
 
-// Trigger 3: Erste Nutzer-Interaktion (Android/iOS Audio-Freigabe)
-document.addEventListener('click', () => {
-    console.log('[TTS] First user interaction');
-    ttsManager.init().catch(e => console.warn('[TTS] Init error:', e));
-}, { once: true });
+// Click-to-Speak: Klick auf jede Sprechblase liest den Text vor
+// Der Klick selbst entsperrt das Audio auf Mobile (Browser-Pflicht erfüllt)
+document.querySelectorAll('.bubble').forEach(bubble => {
+    bubble.addEventListener('click', () => {
+        ttsManager.speak(bubble.textContent);
+    });
+});
 
-// Debug: getTTSStatus() in der Konsole eingeben
-window.getTTSStatus = function () {
-    const s = ttsManager.getStatus();
-    console.log('[TTS] Status:', s);
-    console.log('[TTS] RV_LOAD_STATE:', window.RV_LOAD_STATE);
-    return s;
-};
-console.log('[TTS] Debug-Tipp: getTTSStatus() in der Konsole eingeben');
+// Initiales Rendering des gespeicherten Buddys
+renderBuddy();
