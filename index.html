@@ -9,7 +9,21 @@
     <meta name="theme-color" content="#F0F4F8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <!-- ResponsiveVoice TTS Library (async, non-blocking) -->
+    <!-- ResponsiveVoice TTS Library with load detection -->
+    <script>
+        window.RV_LOAD_STATE = {
+            loaded: false,
+            initialized: false,
+            loadTime: null,
+            error: null,
+            CDN_TIMEOUT: 8000,
+        };
+        window.addEventListener('responsivevoiceready', function () {
+            window.RV_LOAD_STATE.loaded = true;
+            window.RV_LOAD_STATE.loadTime = Date.now();
+            console.log('[TTS] ResponsiveVoice loaded successfully');
+        });
+    </script>
     <script src="https://code.responsivevoice.org/responsivevoice.js" async defer></script>
 </head>
 <body>

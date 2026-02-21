@@ -129,11 +129,16 @@ const soundManager = {
         if (!this.ctx) {
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-            } catch (e) { /* kein Audio-Support */ }
+                console.log('[TTS] AudioContext created, state:', this.ctx.state);
+            } catch (e) {
+                console.error('[TTS] AudioContext creation failed:', e.message);
+            }
         }
-        // Autoplay-Sperre aufheben
         if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume().catch(() => {});
+            console.log('[TTS] AudioContext suspended, resuming...');
+            this.ctx.resume()
+                .then(() => console.log('[TTS] AudioContext resumed'))
+                .catch(e => console.warn('[TTS] AudioContext resume failed:', e.message));
         }
     },
 
@@ -185,50 +190,172 @@ const soundManager = {
    TEXT-TO-SPEECH MANAGER (ResponsiveVoice)
    ============================================ */
 const ttsManager = {
-    voice: 'German Female',
-    enabled: false,
+    state: {
+        status: 'pending',      // pending → ready → failed
+        voice: 'German Female',
+        enabled: false,
+        availableVoices: [],
+        initAttempts: 0,
+        maxRetries: 5,
+    },
 
-    init() {
-        // Check if ResponsiveVoice is loaded
+    // Wait for ResponsiveVoice library (polling + timeout)
+    loadResponsiveVoice() {
+        console.log('[TTS] Starting load detection...');
+
+        if (window.RV_LOAD_STATE && window.RV_LOAD_STATE.loaded) {
+            console.log('[TTS] ResponsiveVoice already loaded');
+            return Promise.resolve(true);
+        }
+
         if (typeof responsiveVoice !== 'undefined') {
-            this.enabled = true;
-            // Ensure audio context is ready (iOS requirement)
-            soundManager._ensureCtx();
+            console.log('[TTS] responsiveVoice global already present');
+            return Promise.resolve(true);
+        }
+
+        const timeout = (window.RV_LOAD_STATE && window.RV_LOAD_STATE.CDN_TIMEOUT) || 8000;
+        const startTime = Date.now();
+
+        return new Promise((resolve) => {
+            const timeoutId = setTimeout(() => {
+                console.error('[TTS] CDN timeout after ' + timeout + 'ms');
+                if (window.RV_LOAD_STATE) window.RV_LOAD_STATE.error = 'CDN timeout';
+                resolve(false);
+            }, timeout);
+
+            const handleLoaded = () => {
+                clearTimeout(timeoutId);
+                clearInterval(pollId);
+                console.log('[TTS] Library ready after ' + (Date.now() - startTime) + 'ms');
+                resolve(true);
+            };
+
+            // Listen for ResponsiveVoice ready event
+            window.addEventListener('responsivevoiceready', handleLoaded, { once: true });
+
+            // Also poll – some browsers miss the event
+            const pollId = setInterval(() => {
+                if (typeof responsiveVoice !== 'undefined') {
+                    handleLoaded();
+                }
+            }, 150);
+        });
+    },
+
+    // Select best available German voice with fallback
+    selectVoice() {
+        if (typeof responsiveVoice === 'undefined') return false;
+        try {
+            const voices = responsiveVoice.getVoices() || [];
+            console.log('[TTS] Available voices: ' + voices.map(v => v.name).join(', '));
+
+            const preference = [
+                v => v.name === 'German Female',
+                v => v.name === 'German Male',
+                v => v.name.includes('German'),
+                v => v.name.includes('English') && v.name.includes('Female'),
+                () => true,
+            ];
+
+            for (const test of preference) {
+                const match = voices.find(test);
+                if (match) {
+                    if (match.name !== 'German Female') {
+                        console.warn('[TTS] German Female unavailable, using: ' + match.name);
+                    }
+                    this.state.voice = match.name;
+                    return true;
+                }
+            }
+            console.error('[TTS] No voices available at all');
+            return false;
+        } catch (e) {
+            console.error('[TTS] Voice selection error: ' + e.message);
+            // Fall back to hardcoded name – ResponsiveVoice handles unknown voices gracefully
+            this.state.voice = 'German Female';
+            return true;
         }
     },
 
-    speak(text) {
-        // Filter emoji for cleaner speech
-        const textToSpeak = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
-        if (!textToSpeak || !this.enabled || !state.soundEnabled) return;
+    // Main init with retry logic
+    async init() {
+        if (this.state.status === 'ready') return true;
 
-        // Cancel any previous speech
-        try {
-            if (typeof responsiveVoice !== 'undefined') {
-                responsiveVoice.cancel();
-            }
-        } catch (e) {}
+        this.state.initAttempts++;
+        console.log('[TTS] Init attempt ' + this.state.initAttempts + '/' + this.state.maxRetries);
 
-        // Speak with German female voice
-        try {
-            if (typeof responsiveVoice !== 'undefined') {
-                responsiveVoice.speak(textToSpeak, this.voice, {
-                    rate: 0.9,
-                    pitch: 1.0,
-                });
+        const libLoaded = await this.loadResponsiveVoice();
+        if (!libLoaded) {
+            if (this.state.initAttempts < this.state.maxRetries) {
+                const delay = Math.min(1000 * Math.pow(2, this.state.initAttempts - 1), 10000);
+                console.log('[TTS] Retrying in ' + delay + 'ms');
+                setTimeout(() => this.init(), delay);
             }
+            return false;
+        }
+
+        this.selectVoice();
+        this.state.status = 'ready';
+        this.state.enabled = true;
+        console.log('[TTS] Ready. Voice: ' + this.state.voice);
+        return true;
+    },
+
+    // Speak with full error handling
+    async speak(text) {
+        const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+        if (!clean) return;
+        if (!state.soundEnabled) return;
+
+        // Auto-init if still pending
+        if (this.state.status === 'pending') {
+            await this.init();
+        }
+
+        if (!this.state.enabled || typeof responsiveVoice === 'undefined') {
+            console.warn('[TTS] Not available (enabled=' + this.state.enabled +
+                ', rvDefined=' + (typeof responsiveVoice !== 'undefined') + ')');
+            return;
+        }
+
+        this.cancel();
+
+        try {
+            console.log('[TTS] Speaking (' + this.state.voice + '): "' + clean.substring(0, 60) + '"');
+            responsiveVoice.speak(clean, this.state.voice, {
+                rate: 0.9,
+                pitch: 1.0,
+                onstart: () => console.log('[TTS] Speech started'),
+                onend:   () => console.log('[TTS] Speech ended'),
+                onerror: (err) => {
+                    console.error('[TTS] Speech error:', err);
+                    // Force re-init on next speak attempt
+                    this.state.status = 'pending';
+                    this.state.enabled = false;
+                },
+            });
         } catch (e) {
-            console.warn('TTS error:', e);
+            console.error('[TTS] Exception: ' + e.message);
         }
     },
 
     cancel() {
-        if (this.enabled && typeof responsiveVoice !== 'undefined') {
-            try {
-                responsiveVoice.cancel();
-            } catch (e) {}
+        if (typeof responsiveVoice === 'undefined') return;
+        try { responsiveVoice.cancel(); } catch (e) {
+            console.warn('[TTS] Cancel error: ' + e.message);
         }
-    }
+    },
+
+    getStatus() {
+        return {
+            status:   this.state.status,
+            enabled:  this.state.enabled,
+            voice:    this.state.voice,
+            attempts: this.state.initAttempts,
+            cdnError: (window.RV_LOAD_STATE && window.RV_LOAD_STATE.error) || null,
+            rvDefined: typeof responsiveVoice !== 'undefined',
+        };
+    },
 };
 
 /* ============================================
@@ -645,12 +772,33 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// Initialize Text-to-Speech (ResponsiveVoice)
-window.addEventListener('load', () => {
+// =============================================
+// TTS INITIALISIERUNG (3 unabhängige Trigger)
+// =============================================
+
+// Trigger 1: ResponsiveVoice-Event (zuverlässigster Weg)
+window.addEventListener('responsivevoiceready', () => {
+    console.log('[TTS] responsivevoiceready event fired');
     ttsManager.init();
 });
 
-// Ensure TTS is ready on first user interaction (iOS requirement)
+// Trigger 2: Window-Load + 500ms Puffer (CDN-Ladezeit)
+window.addEventListener('load', () => {
+    console.log('[TTS] window.load fired');
+    setTimeout(() => ttsManager.init(), 500);
+});
+
+// Trigger 3: Erste Nutzer-Interaktion (Android/iOS Audio-Freigabe)
 document.addEventListener('click', () => {
+    console.log('[TTS] First user interaction');
     ttsManager.init();
 }, { once: true });
+
+// Debug: getTTSStatus() in der Konsole eingeben
+window.getTTSStatus = function () {
+    const s = ttsManager.getStatus();
+    console.log('[TTS] Status:', s);
+    console.log('[TTS] RV_LOAD_STATE:', window.RV_LOAD_STATE);
+    return s;
+};
+console.log('[TTS] Debug-Tipp: getTTSStatus() in der Konsole eingeben');
