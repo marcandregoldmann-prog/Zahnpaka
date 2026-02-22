@@ -250,6 +250,11 @@ p {
     box-shadow: 0 2px 8px rgba(163, 216, 244, 0.3);
 }
 
+.btn-main:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.3);
+}
+
 .btn-skip {
     background: none;
     border: none;
@@ -290,7 +295,7 @@ input[type="text"] {
 
 input[type="text"]:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: #4A90E2;
     background: #fff;
 }
 
@@ -696,6 +701,12 @@ input[type="text"]:focus {
     background: #f0f9ff;
     transform: translateY(-3px);
     box-shadow: 0 6px 16px rgba(163, 216, 244, 0.35);
+}
+
+.buddy-card:focus-visible {
+    outline: none;
+    border-color: #4A90E2;
+    box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.3);
 }
 
 .buddy-card.selected {

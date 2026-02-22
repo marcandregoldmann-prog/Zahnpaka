@@ -190,6 +190,10 @@ const soundManager = {
     tick() {
         this._playTone(440, 0.05, 'square', 0.04);
     },
+
+    uiSelect() {
+        this._playTone(600, 0.1, 'sine', 0.15);
+    },
 };
 
 /* ============================================
@@ -1022,7 +1026,9 @@ async function showDownloadScreen() {
             // Model geladen - zu Buddy-Auswahl
             setTimeout(() => {
                 document.querySelectorAll('.buddy-card').forEach(card => {
-                    card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+                    const isSelected = card.dataset.buddy === state.buddy;
+                    card.classList.toggle('selected', isSelected);
+                    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
                 });
                 showScreen('screen-buddy');
             }, 500);
@@ -1030,7 +1036,9 @@ async function showDownloadScreen() {
             // Fehler - aber trotzdem weiter (Fallback)
             setTimeout(() => {
                 document.querySelectorAll('.buddy-card').forEach(card => {
-                    card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+                    const isSelected = card.dataset.buddy === state.buddy;
+                    card.classList.toggle('selected', isSelected);
+                    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
                 });
                 showScreen('screen-buddy');
             }, 2000);
@@ -1039,7 +1047,9 @@ async function showDownloadScreen() {
         // Fallback: Trotzdem weiter
         setTimeout(() => {
             document.querySelectorAll('.buddy-card').forEach(card => {
-                card.classList.toggle('selected', card.dataset.buddy === state.buddy);
+                const isSelected = card.dataset.buddy === state.buddy;
+                card.classList.toggle('selected', isSelected);
+                card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             });
             showScreen('screen-buddy');
         }, 2000);
@@ -1102,9 +1112,14 @@ if ('serviceWorker' in navigator) {
 // Buddy-Karten: Klick-Handler
 document.querySelectorAll('.buddy-card').forEach(card => {
     card.addEventListener('click', () => {
-        document.querySelectorAll('.buddy-card').forEach(c => c.classList.remove('selected'));
+        document.querySelectorAll('.buddy-card').forEach(c => {
+            c.classList.remove('selected');
+            c.setAttribute('aria-pressed', 'false');
+        });
         card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
         state.buddy = card.dataset.buddy;
+        soundManager.uiSelect();
     });
 });
 
