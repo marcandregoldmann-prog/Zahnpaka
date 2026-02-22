@@ -225,7 +225,7 @@ const ttsManager = {
 
     // Sprachausgabe: Lokale Synthese + Playback
     async speak(text) {
-        const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+        const clean = sanitizeTTS(text);
 
         if (!clean || !state.soundEnabled) return;
         if (!piperReady) {
