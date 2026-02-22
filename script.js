@@ -19,63 +19,7 @@ const state = {
 let cachedAlpacaBrushEl = null;
 
 /* ---- ZAHNPUTZ-PHASEN ---- */
-const phases = [
-    {
-        startAt: 180,
-        endAt:   121,
-        text:    'Jetzt die Kauflächen! Hin und her!',
-        zone:    'zone-unten',
-        zoneLabel: 'Kauflächen (unten)',
-        tips: [
-            'Wie ein kleiner Zug: Tschu-tschu! 🚂',
-            'Hin und her, hin und her...',
-            'Die Zahnteufel laufen weg! 👿💨',
-            'Nicht zu fest – sanft ist besser!',
-        ],
-        expression: 'encouraging',
-    },
-    {
-        startAt: 120,
-        endAt:   61,
-        text:    'Jetzt die Außenflächen! Schöne Kreise!',
-        zone:    'zone-oben',
-        zoneLabel: 'Außenflächen (oben)',
-        tips: [
-            'Ganz sanft – wie eine Feder! 🪶',
-            'Schöne, runde Kreise machen!',
-            'Du putzt wie ein Profi! 🏆',
-            'Wir verjagen noch mehr Teufel!',
-        ],
-        expression: 'happy',
-    },
-    {
-        startAt: 60,
-        endAt:   11,
-        text:    'Jetzt die Innenflächen! Fast fertig!',
-        zone:    'zone-unten',
-        zoneLabel: 'Innenflächen (unten)',
-        tips: [
-            'Noch fast fertig! Du schaffst das! 💪',
-            'Die Innenseiten vergessen wir nicht!',
-            'Alle Zahnteufel werden besiegt! 🎉',
-            'Sanft und gründlich – toll so!',
-        ],
-        expression: 'proud',
-    },
-    {
-        startAt: 10,
-        endAt:   0,
-        text:    'Letzter Glanz! Noch einmal strahlen!',
-        zone:    'zone-oben',
-        zoneLabel: 'Letzter Schliff!',
-        tips: [
-            'Spuck den Schaum jetzt aus! 🫧',
-            'Gleich fertig – du bist toll!',
-            'Noch ein paar Sekunden... 🌟',
-        ],
-        expression: 'happy',
-    },
-];
+// (Phasen sind jetzt in phase-utils.js definiert)
 
 /* ---- ERMUTIGUNGS-PHRASEN ---- */
 const encouragementMessages = {
@@ -791,11 +735,7 @@ function highlightZone(zoneId) {
    PHASEN-MANAGEMENT
    ============================================ */
 function getCurrentPhaseIndex() {
-    for (let i = 0; i < phases.length; i++) {
-        const p = phases[i];
-        if (state.timer <= p.startAt && state.timer > p.endAt) return i;
-    }
-    return phases.length - 1;
+    return getPhaseIndexForTime(state.timer);
 }
 
 function onPhaseChange(newIndex) {
