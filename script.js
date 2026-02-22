@@ -182,6 +182,14 @@ const soundManager = {
         );
     },
 
+    giggle() {
+        // Kichern: 3 kurze hohe Töne
+        const notes = [800, 1000, 1200, 900];
+        notes.forEach((f, i) =>
+            setTimeout(() => this._playTone(f, 0.1, 'sine', 0.15), i * 80)
+        );
+    },
+
     tick() {
         this._playTone(440, 0.05, 'square', 0.04);
     },
@@ -199,6 +207,7 @@ let currentAudio = null;
 
 const ttsManager = {
     voiceId: 'de_DE-thorsten-medium',
+    useFallback: false,
 
     // Initialisierung: Model herunterladen + Piper laden
     async init() {
@@ -219,6 +228,8 @@ const ttsManager = {
             return true;
         } catch (e) {
             console.error('[Piper] Init fehlgeschlagen:', e.message);
+            console.warn('[Piper] Switching to Native TTS Fallback');
+            this.useFallback = true;
             return false;
         }
     },
@@ -228,10 +239,34 @@ const ttsManager = {
         const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
 
         if (!clean || !state.soundEnabled) return;
+
+        // Fallback-Check
+        if (this.useFallback) {
+            console.log('[TTS-Native] Speaking:', clean);
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(clean);
+            utterance.lang = 'de-DE';
+
+            // Versuche eine deutsche Stimme zu finden
+            const voices = window.speechSynthesis.getVoices();
+            const deVoice = voices.find(v => v.lang.startsWith('de'));
+            if (deVoice) utterance.voice = deVoice;
+
+            window.speechSynthesis.speak(utterance);
+            return;
+        }
+
         if (!piperReady) {
             console.warn('[Piper] TTS nicht initialisiert, versuche zu initialisieren...');
             const initSuccess = await this.init();
-            if (!initSuccess) return;
+            if (!initSuccess) {
+                // Wenn Init fehlgeschlagen, ist useFallback jetzt wahr -> Rekursiver Aufruf
+                if (this.useFallback) {
+                    this.speak(text);
+                    return;
+                }
+                return;
+            }
         }
 
         // Vorherige Wiedergabe stoppen
@@ -262,6 +297,9 @@ const ttsManager = {
 
         } catch (e) {
             console.error('[Piper] Sprachausgabe fehlgeschlagen:', e.message);
+            // Fallback bei Runtime-Fehler
+            this.useFallback = true;
+            this.speak(text);
         }
     },
 
@@ -305,10 +343,8 @@ const buddySvgs = {
 <rect x="71" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(-18 71 24)"/>
 <rect x="122" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(18 122 24)"/>
 <ellipse cx="100" cy="78" rx="46" ry="44" fill="#FFF5E1"/>
-<ellipse cx="82" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="84" cy="70" r="4.5" fill="#333"/><circle cx="86" cy="68" r="1.5" fill="#fff"/>
-<ellipse cx="118" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="120" cy="70" r="4.5" fill="#333"/><circle cx="122" cy="68" r="1.5" fill="#fff"/>
+<g class="buddy-eye"><ellipse cx="82" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="84" cy="70" r="4.5" fill="#333"/><circle cx="86" cy="68" r="1.5" fill="#fff"/></g>
+<g class="buddy-eye"><ellipse cx="118" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="120" cy="70" r="4.5" fill="#333"/><circle cx="122" cy="68" r="1.5" fill="#fff"/></g>
 <ellipse cx="100" cy="88" rx="14" ry="9" fill="#FFD4C2"/>
 <circle cx="96" cy="88" r="3" fill="#E88E6A" opacity="0.6"/><circle cx="104" cy="88" r="3" fill="#E88E6A" opacity="0.6"/>
 <path d="M 90 98 Q 100 108 110 98" fill="none" stroke="#E88E6A" stroke-width="3" stroke-linecap="round"/>
@@ -329,10 +365,8 @@ const buddySvgs = {
 <rect x="71" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(-18 71 24)"/>
 <rect x="122" y="24" width="7" height="18" rx="4" fill="#FFB6C1" transform="rotate(18 122 24)"/>
 <ellipse cx="100" cy="78" rx="46" ry="44" fill="#FFF5E1"/>
-<ellipse cx="82" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="84" cy="70" r="4.5" fill="#333"/><circle cx="86" cy="68" r="1.5" fill="#fff"/>
-<ellipse cx="118" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="120" cy="70" r="4.5" fill="#333"/><circle cx="122" cy="68" r="1.5" fill="#fff"/>
+<g class="buddy-eye"><ellipse cx="82" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="84" cy="70" r="4.5" fill="#333"/><circle cx="86" cy="68" r="1.5" fill="#fff"/></g>
+<g class="buddy-eye"><ellipse cx="118" cy="68" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="120" cy="70" r="4.5" fill="#333"/><circle cx="122" cy="68" r="1.5" fill="#fff"/></g>
 <ellipse cx="100" cy="88" rx="14" ry="9" fill="#FFD4C2"/>
 <circle cx="96" cy="88" r="3" fill="#E88E6A" opacity="0.6"/><circle cx="104" cy="88" r="3" fill="#E88E6A" opacity="0.6"/>
 <path id="mouth-brushing" d="M 90 98 Q 100 108 110 98" fill="none" stroke="#E88E6A" stroke-width="3" stroke-linecap="round"/>
@@ -385,10 +419,8 @@ const buddySvgs = {
 <polygon points="72,48 64,26 88,42" fill="#FFB6C1"/>
 <polygon points="128,48 136,26 112,42" fill="#FFB6C1"/>
 <ellipse cx="100" cy="78" rx="44" ry="42" fill="#FFCD8A"/>
-<ellipse cx="83" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
-<ellipse cx="83" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="86" cy="64" r="1.8" fill="#fff"/>
-<ellipse cx="117" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
-<ellipse cx="117" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="120" cy="64" r="1.8" fill="#fff"/>
+<g class="buddy-eye"><ellipse cx="83" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/><ellipse cx="83" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="86" cy="64" r="1.8" fill="#fff"/></g>
+<g class="buddy-eye"><ellipse cx="117" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/><ellipse cx="117" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="120" cy="64" r="1.8" fill="#fff"/></g>
 <polygon points="100,85 95,91 105,91" fill="#FFB6C1"/>
 <path d="M 95 91 Q 91 97 87 95" fill="none" stroke="#C06060" stroke-width="2" stroke-linecap="round"/>
 <path d="M 105 91 Q 109 97 113 95" fill="none" stroke="#C06060" stroke-width="2" stroke-linecap="round"/>
@@ -411,10 +443,8 @@ const buddySvgs = {
 <polygon points="72,48 64,26 88,42" fill="#FFB6C1"/>
 <polygon points="128,48 136,26 112,42" fill="#FFB6C1"/>
 <ellipse cx="100" cy="78" rx="44" ry="42" fill="#FFCD8A"/>
-<ellipse cx="83" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
-<ellipse cx="83" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="86" cy="64" r="1.8" fill="#fff"/>
-<ellipse cx="117" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/>
-<ellipse cx="117" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="120" cy="64" r="1.8" fill="#fff"/>
+<g class="buddy-eye"><ellipse cx="83" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/><ellipse cx="83" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="86" cy="64" r="1.8" fill="#fff"/></g>
+<g class="buddy-eye"><ellipse cx="117" cy="68" rx="9" ry="10" fill="#98D8A3" stroke="#333" stroke-width="1.5"/><ellipse cx="117" cy="68" rx="3.5" ry="6.5" fill="#333"/><circle cx="120" cy="64" r="1.8" fill="#fff"/></g>
 <polygon points="100,85 95,91 105,91" fill="#FFB6C1"/>
 <path id="mouth-brushing" d="M 90 98 Q 100 108 110 98" fill="none" stroke="#C06060" stroke-width="3" stroke-linecap="round"/>
 <line x1="56" y1="82" x2="90" y2="87" stroke="#9988AA" stroke-width="1.5" stroke-linecap="round"/>
@@ -469,10 +499,8 @@ const buddySvgs = {
 <ellipse cx="100" cy="24" rx="12" ry="14" fill="#E63A2A"/>
 <ellipse cx="116" cy="32" rx="11" ry="13" fill="#E63A2A"/>
 <ellipse cx="100" cy="76" rx="40" ry="40" fill="#FFE566"/>
-<ellipse cx="84" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="86" cy="67" r="4.5" fill="#333"/><circle cx="88" cy="65" r="1.5" fill="#fff"/>
-<ellipse cx="116" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="118" cy="67" r="4.5" fill="#333"/><circle cx="120" cy="65" r="1.5" fill="#fff"/>
+<g class="buddy-eye"><ellipse cx="84" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="86" cy="67" r="4.5" fill="#333"/><circle cx="88" cy="65" r="1.5" fill="#fff"/></g>
+<g class="buddy-eye"><ellipse cx="116" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="118" cy="67" r="4.5" fill="#333"/><circle cx="120" cy="65" r="1.5" fill="#fff"/></g>
 <polygon points="100,78 89,90 111,90" fill="#FF8C00"/>
 <ellipse cx="100" cy="97" rx="8" ry="6" fill="#E63A2A"/>
 <ellipse cx="71" cy="78" rx="10" ry="7" fill="#FFB6C1" opacity="0.35"/>
@@ -495,10 +523,8 @@ const buddySvgs = {
 <ellipse cx="100" cy="24" rx="12" ry="14" fill="#E63A2A"/>
 <ellipse cx="116" cy="32" rx="11" ry="13" fill="#E63A2A"/>
 <ellipse cx="100" cy="76" rx="40" ry="40" fill="#FFE566"/>
-<ellipse cx="84" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="86" cy="67" r="4.5" fill="#333"/><circle cx="88" cy="65" r="1.5" fill="#fff"/>
-<ellipse cx="116" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/>
-<circle cx="118" cy="67" r="4.5" fill="#333"/><circle cx="120" cy="65" r="1.5" fill="#fff"/>
+<g class="buddy-eye"><ellipse cx="84" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="86" cy="67" r="4.5" fill="#333"/><circle cx="88" cy="65" r="1.5" fill="#fff"/></g>
+<g class="buddy-eye"><ellipse cx="116" cy="66" rx="8" ry="9" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="118" cy="67" r="4.5" fill="#333"/><circle cx="120" cy="65" r="1.5" fill="#fff"/></g>
 <polygon points="100,78 89,90 111,90" fill="#FF8C00"/>
 <path id="mouth-brushing" d="M 90 98 Q 100 108 110 98" fill="none" stroke="#FF8C00" stroke-width="3" stroke-linecap="round"/>
 <ellipse cx="100" cy="100" rx="7" ry="5" fill="#E63A2A"/>
@@ -568,6 +594,18 @@ function renderBuddy() {
     const greetEl = document.getElementById('buddy-greeting');
     if (greetEl) greetEl.textContent = info.greeting;
 
+    // Kitzel-Interaktion hinzufügen
+    if (brushEl) {
+        // Entferne alte Listener (durch Klonen oder explizites Entfernen, hier Klonen einfacher)
+        const newBrushEl = brushEl.cloneNode(true);
+        brushEl.parentNode.replaceChild(newBrushEl, brushEl);
+
+        // Listener hinzufügen
+        newBrushEl.addEventListener('click', () => {
+            triggerAlpacaReaction('giggle');
+        });
+    }
+
     // Buddy-Vorschau-Karten (Auswahl-Screen) befüllen
     ['alpaka', 'katze', 'huhn'].forEach(id => {
         const previewEl = document.getElementById('preview-' + id);
@@ -631,10 +669,14 @@ function triggerAlpacaReaction(type) {
     } else if (type === 'encouragement') {
         el.classList.add('alpaka-excited');
         setExpression('happy');
+    } else if (type === 'giggle') {
+        el.classList.add('alpaka-giggle');
+        soundManager.giggle();
+        setExpression('happy');
     }
 
     el.addEventListener('animationend', () => {
-        el.classList.remove('alpaka-dance', 'alpaka-proud', 'alpaka-excited');
+        el.classList.remove('alpaka-dance', 'alpaka-proud', 'alpaka-excited', 'alpaka-giggle');
     }, { once: true });
 }
 
@@ -822,6 +864,14 @@ function startBrushing() {
         state.timer--;
         updateDisplay();
 
+        // Sparkles erzeugen (alle 1s ein paar)
+        if (state.timer > 0) {
+            // 2-3 Sparkles pro Sekunde verteilt
+            setTimeout(() => createSparkle(), 100);
+            setTimeout(() => createSparkle(), 400);
+            setTimeout(() => createSparkle(), 700);
+        }
+
         if (state.timer <= 0) {
             clearInterval(state.interval);
             state.interval = null;
@@ -850,6 +900,40 @@ function finish() {
     showScreen('screen-finish');
     soundManager.celebration();
     spawnConfetti();
+}
+
+/* ============================================
+   SPARKLES (PUTZ-EFFEKT)
+   ============================================ */
+function createSparkle() {
+    const container = document.getElementById('buddy-container-brushing');
+    if (!container) return;
+
+    // Sparkle relativ zum Mund-Bereich
+    const sparkle = document.createElement('div');
+    sparkle.className = 'sparkle';
+
+    // Zufällige Position um den Mund herum (zentral im SVG)
+    // SVG ist ca 200x220, Mund ist bei ~100,100
+    // Wir positionieren absolut im Container
+    // Container ist relative, Größe passt sich an.
+    // Wir nutzen % für grobe Positionierung
+    const offsetX = 50 + (Math.random() * 20 - 10);
+    const offsetY = 45 + (Math.random() * 15 - 7);
+
+    sparkle.style.left = `${offsetX}%`;
+    sparkle.style.top  = `${offsetY}%`;
+
+    // Zufällige Farbe (Gold, Weiß, Hellblau)
+    const colors = ['#FFD700', '#FFFFFF', '#A3D8F4'];
+    sparkle.style.background = `radial-gradient(circle, #fff 0%, ${colors[Math.floor(Math.random()*colors.length)]} 80%)`;
+
+    container.appendChild(sparkle);
+
+    // Cleanup
+    setTimeout(() => {
+        if (sparkle.parentNode) sparkle.parentNode.removeChild(sparkle);
+    }, 1000);
 }
 
 /* ============================================
@@ -946,7 +1030,7 @@ async function showDownloadScreen() {
             }, 500);
         } else {
             // Fehler - aber trotzdem weiter (Fallback)
-            console.warn('[Download] Fehler beim Laden, fahre fort ohne TTS');
+            console.warn('[Download] Fehler beim Laden, nutze Native TTS Fallback');
             setTimeout(() => {
                 document.querySelectorAll('.buddy-card').forEach(card => {
                     card.classList.toggle('selected', card.dataset.buddy === state.buddy);
