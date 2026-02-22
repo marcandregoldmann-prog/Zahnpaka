@@ -630,9 +630,16 @@ function triggerAlpacaReaction(type) {
 /* ============================================
    SPRECHBLASE
    ============================================ */
+let cachedSpeechBubble = null;
+let cachedSpeechText   = null;
+
 function setSpeechBubble(text) {
-    const el     = document.getElementById('speech-bubble');
-    const textEl = document.getElementById('speech-text');
+    if (!cachedSpeechBubble) cachedSpeechBubble = document.getElementById('speech-bubble');
+    if (!cachedSpeechText)   cachedSpeechText   = document.getElementById('speech-text');
+
+    const el     = cachedSpeechBubble;
+    const textEl = cachedSpeechText;
+
     if (!el) return;
     el.classList.remove('bubble-new');
     void el.offsetWidth;
