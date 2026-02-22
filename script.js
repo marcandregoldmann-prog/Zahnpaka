@@ -130,16 +130,13 @@ const soundManager = {
         if (!this.ctx) {
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('[TTS] AudioContext created, state:', this.ctx.state);
             } catch (e) {
-                console.error('[TTS] AudioContext creation failed:', e.message);
+                // Ignore
             }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
-            console.log('[TTS] AudioContext suspended, resuming...');
             this.ctx.resume()
-                .then(() => console.log('[TTS] AudioContext resumed'))
-                .catch(e => console.warn('[TTS] AudioContext resume failed:', e.message));
+                .catch(() => { /* Ignore */ });
         }
     },
 
@@ -214,15 +211,11 @@ const ttsManager = {
         if (piperReady) return true;
 
         try {
-            console.log('[Piper] Starte Initialisierung...');
-
             // Dynamischer Import von Piper TTS Web
             piperModule = await import('@mintplex-labs/piper-tts-web');
-            console.log('[Piper] Modul geladen');
 
             // Model herunterladen/cachen
             await piperModule.downloadModelIfNeeded(this.voiceId);
-            console.log('[Piper] Model erfolgreich geladen');
 
             piperReady = true;
             return true;
@@ -236,7 +229,10 @@ const ttsManager = {
 
     // Sprachausgabe: Lokale Synthese + Playback
     async speak(text) {
-        const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+        // Verwende sanitizeTTS aus tts-utils.js wenn verfügbar, sonst Fallback-Regex
+        const clean = (typeof sanitizeTTS === 'function')
+            ? sanitizeTTS(text)
+            : text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
 
         if (!clean || !state.soundEnabled) return;
 
@@ -257,7 +253,6 @@ const ttsManager = {
         }
 
         if (!piperReady) {
-            console.warn('[Piper] TTS nicht initialisiert, versuche zu initialisieren...');
             const initSuccess = await this.init();
             if (!initSuccess) {
                 // Wenn Init fehlgeschlagen, ist useFallback jetzt wahr -> Rekursiver Aufruf
@@ -276,8 +271,6 @@ const ttsManager = {
         }
 
         try {
-            console.log('[Piper] Spreche:', clean.substring(0, 60));
-
             // WASM-Synthese: Text → WAV-Audioformat
             const wav = await piperModule.predict({
                 text: clean,
@@ -683,9 +676,16 @@ function triggerAlpacaReaction(type) {
 /* ============================================
    SPRECHBLASE
    ============================================ */
+let cachedSpeechBubble = null;
+let cachedSpeechText   = null;
+
 function setSpeechBubble(text) {
-    const el     = document.getElementById('speech-bubble');
-    const textEl = document.getElementById('speech-text');
+    if (!cachedSpeechBubble) cachedSpeechBubble = document.getElementById('speech-bubble');
+    if (!cachedSpeechText)   cachedSpeechText   = document.getElementById('speech-text');
+
+    const el     = cachedSpeechBubble;
+    const textEl = cachedSpeechText;
+
     if (!el) return;
     el.classList.remove('bubble-new');
     void el.offsetWidth;
@@ -1039,7 +1039,6 @@ async function showDownloadScreen() {
             }, 2000);
         }
     } catch (e) {
-        console.error('[Download] Exception:', e);
         // Fallback: Trotzdem weiter
         setTimeout(() => {
             document.querySelectorAll('.buddy-card').forEach(card => {

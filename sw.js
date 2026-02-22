@@ -45,8 +45,10 @@ self.addEventListener('fetch', (event) => {
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, toCache));
                 return response;
             }).catch(() => {
-                // Offline: Fallback auf index.html
-                return caches.match('./index.html');
+                // Offline: Fallback auf index.html nur für Navigationsanfragen
+                if (event.request.mode === 'navigate') {
+                    return caches.match('./index.html');
+                }
             });
         })
     );
