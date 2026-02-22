@@ -32,46 +32,17 @@
 
 ---
 
-## Console Diagnostics (Read All [TTS] Messages)
-
-Look for these **[TTS] prefixed messages** in the console:
-
-### Successful Load Sequence (What You Want to See):
-```
-[TTS] ResponsiveVoice loaded successfully       ← HTML detects CDN load
-[TTS] Starting load detection...                 ← ttsManager begins init
-[TTS] ResponsiveVoice already loaded            ← Library is ready
-[TTS] Available voices: German Female, ...      ← Voice check happens
-[TTS] Ready. Voice: German Female               ← Init complete
-[TTS] Speaking (German Female): "Hallo..."      ← Speech starts
-[TTS] Speech started                             ← Audio playing
-[TTS] Speech ended                               ← Audio finished
-```
-
-### Common Errors and Fixes:
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `[TTS] CDN timeout after 8000ms` | ResponsiveVoice CDN didn't load | Check internet, try hard refresh (Ctrl+Shift+R) |
-| `[TTS] No voices available at all` | Device doesn't have required voices | Try a different browser |
-| `responsiveVoice is not defined` | CDN failed silently | Hard refresh, check network tab |
-| `[TTS] Init error: Cannot read property...` | Async timing issue | App will auto-retry up to 5 times |
-
----
-
 ## Step-by-Step Testing (All Browsers)
 
 ### Test 1: App Startup
-1. Open app, watch console
-2. Should see `[TTS] ResponsiveVoice loaded successfully` within 8 seconds
-3. Click any button (triggers voice unlock on mobile)
-4. Check `getTTSStatus()` → status should be "ready"
+1. Open app
+2. Click any button (triggers voice unlock on mobile)
+3. Check `getTTSStatus()` → status should be "ready"
 
 ### Test 2: Speech on Name Input
 1. At startup screen, type a name
 2. Click "Zähne putzen!" button
 3. **You should hear** a German voice say intro text
-4. Console should show `[TTS] Speaking...` messages
 
 ### Test 3: Speech During Brushing
 1. Start brushing timer
@@ -82,7 +53,6 @@ Look for these **[TTS] prefixed messages** in the console:
 ### Test 4: Speech at Completion
 1. Let brushing timer finish (or restart to test)
 2. At finish screen, **you should hear** congratulations message with your name
-3. Console shows `[TTS] Speech started` and `[TTS] Speech ended`
 
 ### Test 5: Mute Button Works
 1. Click 🔊 mute button (becomes 🔇)
@@ -98,8 +68,7 @@ Look for these **[TTS] prefixed messages** in the console:
 1. Open app on Android phone
 2. **Important:** Press screen once to unlock audio (mobile requirement)
 3. Check DevTools: `getTTSStatus()`
-4. Look for `[TTS] Speaking...` in console
-5. **You should hear** German narration
+4. **You should hear** German narration
 
 **If No Audio:**
 - Check phone volume is up
@@ -163,11 +132,6 @@ Returns:
   CDN_TIMEOUT: 8000       // Timeout setting (ms)
 }
 ```
-
-### Check All [TTS] Messages in Console:
-1. Open Console
-2. Filter: type `[TTS]` in the filter box
-3. All diagnostic messages appear
 
 ### Manually Test TTS:
 ```javascript
@@ -255,8 +219,7 @@ If you hear "Hallo! Das ist ein Test." → ResponsiveVoice works
 ### Step 5: Report Issue
 If still not working, collect and share:
 1. `getTTSStatus()` output
-2. All `[TTS]` console messages
-3. Browser name & version
+2. Browser name & version
 4. Device type (desktop/mobile)
 5. Network tab screenshot showing responsivevoice.js
 
@@ -266,7 +229,6 @@ If still not working, collect and share:
 
 You'll know TTS is working when:
 - ✅ `getTTSStatus()` returns `status: "ready"`, `enabled: true`
-- ✅ Console shows `[TTS] Speech started` and `[TTS] Speech ended`
 - ✅ You hear German narration for intro, phases, encouragement, and finish
 - ✅ Mute button (🔊/🔇) controls whether audio plays
 - ✅ Works on both desktop and mobile browsers
@@ -280,4 +242,3 @@ You'll know TTS is working when:
 2. **Mobile: Always tap screen first** - Unlocks audio on iOS/Android
 3. **Keep mute button unmuted** - Default is unmuted (🔊)
 4. **Use hard refresh if unclear** - Clears old cached version
-5. **Check console immediately after load** - Catch errors early
