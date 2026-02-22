@@ -17,6 +17,7 @@ const state = {
 };
 
 let cachedAlpacaBrushEl = null;
+let cachedMouthEl = null;
 
 /* ---- ZAHNPUTZ-PHASEN ---- */
 const phases = [
@@ -577,6 +578,7 @@ const buddySvgs = {
 /* Rendert den gewählten Buddy in alle Screen-Container */
 function renderBuddy() {
     cachedAlpacaBrushEl = null;
+    cachedMouthEl = null;
     const buddy = state.buddy;
     const info  = buddyInfo[buddy];
 
@@ -639,7 +641,10 @@ const expressions = {
 
 function setExpression(expressionName) {
     const expr = expressions[expressionName] || expressions.neutral;
-    const mouth = document.getElementById('mouth-brushing');
+    if (!cachedMouthEl || !cachedMouthEl.isConnected) {
+        cachedMouthEl = document.getElementById('mouth-brushing');
+    }
+    const mouth = cachedMouthEl;
     if (mouth) {
         mouth.setAttribute('d', expr.mouth);
     }
