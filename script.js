@@ -577,6 +577,12 @@ const buddySvgs = {
 /* Rendert den gewählten Buddy in alle Screen-Container */
 function renderBuddy() {
     cachedAlpacaBrushEl = null;
+
+    // Fallback falls state.buddy ungültig ist (z.B. durch manipuliertes LocalStorage)
+    if (!buddyInfo[state.buddy]) {
+        state.buddy = 'alpaka';
+    }
+
     const buddy = state.buddy;
     const info  = buddyInfo[buddy];
 
