@@ -220,7 +220,6 @@ const ttsManager = {
             piperReady = true;
             return true;
         } catch (e) {
-            console.error('[Piper] Init fehlgeschlagen:', e.message);
             console.warn('[Piper] Switching to Native TTS Fallback');
             this.useFallback = true;
             return false;
@@ -289,7 +288,6 @@ const ttsManager = {
             };
 
         } catch (e) {
-            console.error('[Piper] Sprachausgabe fehlgeschlagen:', e.message);
             // Fallback bei Runtime-Fehler
             this.useFallback = true;
             this.speak(text);
@@ -1030,7 +1028,6 @@ async function showDownloadScreen() {
             }, 500);
         } else {
             // Fehler - aber trotzdem weiter (Fallback)
-            console.warn('[Download] Fehler beim Laden, nutze Native TTS Fallback');
             setTimeout(() => {
                 document.querySelectorAll('.buddy-card').forEach(card => {
                     card.classList.toggle('selected', card.dataset.buddy === state.buddy);
