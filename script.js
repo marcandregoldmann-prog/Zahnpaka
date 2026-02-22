@@ -16,6 +16,8 @@ const state = {
     introStep: 0,
 };
 
+let cachedAlpacaBrushEl = null;
+
 /* ---- ZAHNPUTZ-PHASEN ---- */
 const phases = [
     {
@@ -570,6 +572,7 @@ const buddySvgs = {
 
 /* Rendert den gewählten Buddy in alle Screen-Container */
 function renderBuddy() {
+    cachedAlpacaBrushEl = null;
     const buddy = state.buddy;
     const info  = buddyInfo[buddy];
 
@@ -639,7 +642,11 @@ function setExpression(expressionName) {
 }
 
 function triggerAlpacaReaction(type) {
-    const el = document.getElementById('alpaka-brushing');
+    if (!cachedAlpacaBrushEl || !cachedAlpacaBrushEl.isConnected) {
+        cachedAlpacaBrushEl = document.getElementById('alpaka-brushing');
+    }
+    const el = cachedAlpacaBrushEl;
+
     if (!el) return;
 
     // Klassen entfernen für Neustart
