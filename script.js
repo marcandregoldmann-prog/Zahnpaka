@@ -130,16 +130,13 @@ const soundManager = {
         if (!this.ctx) {
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('[TTS] AudioContext created, state:', this.ctx.state);
             } catch (e) {
-                console.error('[TTS] AudioContext creation failed:', e.message);
+                // Ignore
             }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
-            console.log('[TTS] AudioContext suspended, resuming...');
             this.ctx.resume()
-                .then(() => console.log('[TTS] AudioContext resumed'))
-                .catch(e => console.warn('[TTS] AudioContext resume failed:', e.message));
+                .catch(() => { /* Ignore */ });
         }
     },
 
@@ -205,20 +202,15 @@ const ttsManager = {
         if (piperReady) return true;
 
         try {
-            console.log('[Piper] Starte Initialisierung...');
-
             // Dynamischer Import von Piper TTS Web
             piperModule = await import('@mintplex-labs/piper-tts-web');
-            console.log('[Piper] Modul geladen');
 
             // Model herunterladen/cachen
             await piperModule.downloadModelIfNeeded(this.voiceId);
-            console.log('[Piper] Model erfolgreich geladen');
 
             piperReady = true;
             return true;
         } catch (e) {
-            console.error('[Piper] Init fehlgeschlagen:', e.message);
             return false;
         }
     },
@@ -229,7 +221,6 @@ const ttsManager = {
 
         if (!clean || !state.soundEnabled) return;
         if (!piperReady) {
-            console.warn('[Piper] TTS nicht initialisiert, versuche zu initialisieren...');
             const initSuccess = await this.init();
             if (!initSuccess) return;
         }
@@ -241,8 +232,6 @@ const ttsManager = {
         }
 
         try {
-            console.log('[Piper] Spreche:', clean.substring(0, 60));
-
             // WASM-Synthese: Text → WAV-Audioformat
             const wav = await piperModule.predict({
                 text: clean,
@@ -261,7 +250,7 @@ const ttsManager = {
             };
 
         } catch (e) {
-            console.error('[Piper] Sprachausgabe fehlgeschlagen:', e.message);
+            // Sprachausgabe fehlgeschlagen
         }
     },
 
@@ -946,7 +935,6 @@ async function showDownloadScreen() {
             }, 500);
         } else {
             // Fehler - aber trotzdem weiter (Fallback)
-            console.warn('[Download] Fehler beim Laden, fahre fort ohne TTS');
             setTimeout(() => {
                 document.querySelectorAll('.buddy-card').forEach(card => {
                     card.classList.toggle('selected', card.dataset.buddy === state.buddy);
@@ -955,7 +943,6 @@ async function showDownloadScreen() {
             }, 2000);
         }
     } catch (e) {
-        console.error('[Download] Exception:', e);
         // Fallback: Trotzdem weiter
         setTimeout(() => {
             document.querySelectorAll('.buddy-card').forEach(card => {
