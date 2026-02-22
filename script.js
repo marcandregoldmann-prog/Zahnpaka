@@ -611,6 +611,17 @@ function renderBuddy() {
     });
 }
 
+/**
+ * Aktualisiert die UI der Buddy-Auswahl-Karten basierend auf dem aktuellen Zustand.
+ */
+function updateBuddySelectionUI() {
+    document.querySelectorAll('.buddy-card').forEach(card => {
+        const isSelected = card.dataset.buddy === state.buddy;
+        card.classList.toggle('selected', isSelected);
+        card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+}
+
 /* ============================================
    ALPAKA-EXPRESSION-SYSTEM
    ============================================ */
@@ -1032,32 +1043,20 @@ async function showDownloadScreen() {
         if (success) {
             // Model geladen - zu Buddy-Auswahl
             setTimeout(() => {
-                document.querySelectorAll('.buddy-card').forEach(card => {
-                    const isSelected = card.dataset.buddy === state.buddy;
-                    card.classList.toggle('selected', isSelected);
-                    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-                });
+                updateBuddySelectionUI();
                 showScreen('screen-buddy');
             }, 500);
         } else {
             // Fehler - aber trotzdem weiter (Fallback)
             setTimeout(() => {
-                document.querySelectorAll('.buddy-card').forEach(card => {
-                    const isSelected = card.dataset.buddy === state.buddy;
-                    card.classList.toggle('selected', isSelected);
-                    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-                });
+                updateBuddySelectionUI();
                 showScreen('screen-buddy');
             }, 2000);
         }
     } catch (e) {
         // Fallback: Trotzdem weiter
         setTimeout(() => {
-            document.querySelectorAll('.buddy-card').forEach(card => {
-                const isSelected = card.dataset.buddy === state.buddy;
-                card.classList.toggle('selected', isSelected);
-                card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-            });
+            updateBuddySelectionUI();
             showScreen('screen-buddy');
         }, 2000);
     }
@@ -1119,13 +1118,8 @@ if ('serviceWorker' in navigator) {
 // Buddy-Karten: Klick-Handler
 document.querySelectorAll('.buddy-card').forEach(card => {
     card.addEventListener('click', () => {
-        document.querySelectorAll('.buddy-card').forEach(c => {
-            c.classList.remove('selected');
-            c.setAttribute('aria-pressed', 'false');
-        });
-        card.classList.add('selected');
-        card.setAttribute('aria-pressed', 'true');
         state.buddy = card.dataset.buddy;
+        updateBuddySelectionUI();
         soundManager.uiSelect();
     });
 });
