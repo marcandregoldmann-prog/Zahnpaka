@@ -20,63 +20,7 @@ let cachedAlpacaBrushEl = null;
 let cachedMouthEl = null;
 
 /* ---- ZAHNPUTZ-PHASEN ---- */
-const phases = [
-    {
-        startAt: 180,
-        endAt:   121,
-        text:    'Jetzt die Kauflächen! Hin und her!',
-        zone:    'zone-unten',
-        zoneLabel: 'Kauflächen (unten)',
-        tips: [
-            'Wie ein kleiner Zug: Tschu-tschu! 🚂',
-            'Hin und her, hin und her...',
-            'Die Zahnteufel laufen weg! 👿💨',
-            'Nicht zu fest – sanft ist besser!',
-        ],
-        expression: 'encouraging',
-    },
-    {
-        startAt: 120,
-        endAt:   61,
-        text:    'Jetzt die Außenflächen! Schöne Kreise!',
-        zone:    'zone-oben',
-        zoneLabel: 'Außenflächen (oben)',
-        tips: [
-            'Ganz sanft – wie eine Feder! 🪶',
-            'Schöne, runde Kreise machen!',
-            'Du putzt wie ein Profi! 🏆',
-            'Wir verjagen noch mehr Teufel!',
-        ],
-        expression: 'happy',
-    },
-    {
-        startAt: 60,
-        endAt:   11,
-        text:    'Jetzt die Innenflächen! Fast fertig!',
-        zone:    'zone-unten',
-        zoneLabel: 'Innenflächen (unten)',
-        tips: [
-            'Noch fast fertig! Du schaffst das! 💪',
-            'Die Innenseiten vergessen wir nicht!',
-            'Alle Zahnteufel werden besiegt! 🎉',
-            'Sanft und gründlich – toll so!',
-        ],
-        expression: 'proud',
-    },
-    {
-        startAt: 10,
-        endAt:   0,
-        text:    'Letzter Glanz! Noch einmal strahlen!',
-        zone:    'zone-oben',
-        zoneLabel: 'Letzter Schliff!',
-        tips: [
-            'Spuck den Schaum jetzt aus! 🫧',
-            'Gleich fertig – du bist toll!',
-            'Noch ein paar Sekunden... 🌟',
-        ],
-        expression: 'happy',
-    },
-];
+// (Phasen sind jetzt in phase-utils.js definiert)
 
 /* ---- ERMUTIGUNGS-PHRASEN ---- */
 const encouragementMessages = {
@@ -578,7 +522,12 @@ const buddySvgs = {
 /* Rendert den gewählten Buddy in alle Screen-Container */
 function renderBuddy() {
     cachedAlpacaBrushEl = null;
-    cachedMouthEl = null;
+
+    // Fallback falls state.buddy ungültig ist (z.B. durch manipuliertes LocalStorage)
+    if (!buddyInfo[state.buddy]) {
+        state.buddy = 'alpaka';
+    }
+
     const buddy = state.buddy;
     const info  = buddyInfo[buddy];
 
@@ -610,6 +559,17 @@ function renderBuddy() {
     ['alpaka', 'katze', 'huhn'].forEach(id => {
         const previewEl = document.getElementById('preview-' + id);
         if (previewEl) previewEl.innerHTML = buddySvgs[id].idle;
+    });
+}
+
+/**
+ * Aktualisiert die UI der Buddy-Auswahl-Karten basierend auf dem aktuellen Zustand.
+ */
+function updateBuddySelectionUI() {
+    document.querySelectorAll('.buddy-card').forEach(card => {
+        const isSelected = card.dataset.buddy === state.buddy;
+        card.classList.toggle('selected', isSelected);
+        card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
     });
 }
 
@@ -785,11 +745,7 @@ function highlightZone(zoneId) {
    PHASEN-MANAGEMENT
    ============================================ */
 function getCurrentPhaseIndex() {
-    for (let i = 0; i < phases.length; i++) {
-        const p = phases[i];
-        if (state.timer <= p.startAt && state.timer > p.endAt) return i;
-    }
-    return phases.length - 1;
+    return getPhaseIndexForTime(state.timer);
 }
 
 function onPhaseChange(newIndex) {
@@ -961,6 +917,8 @@ function spawnConfetti() {
     const colors  = ['#A3D8F4', '#FFB6C1', '#FFD700', '#90EE90', '#DDA0DD', '#FFA07A'];
     const count   = 60;
 
+    const fragment = document.createDocumentFragment();
+
     for (let i = 0; i < count; i++) {
         const piece = document.createElement('div');
         piece.className = 'confetti-piece';
@@ -971,8 +929,10 @@ function spawnConfetti() {
         piece.style.background  = colors[Math.floor(Math.random() * colors.length)];
         piece.style.animationDuration  = `${1.5 + Math.random() * 2}s`;
         piece.style.animationDelay     = `${Math.random() * 0.8}s`;
-        container.appendChild(piece);
+        fragment.appendChild(piece);
     }
+
+    container.appendChild(fragment);
 
     // Konfetti nach 4s aufräumen
     setTimeout(() => { container.innerHTML = ''; }, 4500);
@@ -1037,32 +997,20 @@ async function showDownloadScreen() {
         if (success) {
             // Model geladen - zu Buddy-Auswahl
             setTimeout(() => {
-                document.querySelectorAll('.buddy-card').forEach(card => {
-                    const isSelected = card.dataset.buddy === state.buddy;
-                    card.classList.toggle('selected', isSelected);
-                    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-                });
+                updateBuddySelectionUI();
                 showScreen('screen-buddy');
             }, 500);
         } else {
             // Fehler - aber trotzdem weiter (Fallback)
             setTimeout(() => {
-                document.querySelectorAll('.buddy-card').forEach(card => {
-                    const isSelected = card.dataset.buddy === state.buddy;
-                    card.classList.toggle('selected', isSelected);
-                    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-                });
+                updateBuddySelectionUI();
                 showScreen('screen-buddy');
             }, 2000);
         }
     } catch (e) {
         // Fallback: Trotzdem weiter
         setTimeout(() => {
-            document.querySelectorAll('.buddy-card').forEach(card => {
-                const isSelected = card.dataset.buddy === state.buddy;
-                card.classList.toggle('selected', isSelected);
-                card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-            });
+            updateBuddySelectionUI();
             showScreen('screen-buddy');
         }, 2000);
     }
@@ -1124,13 +1072,8 @@ if ('serviceWorker' in navigator) {
 // Buddy-Karten: Klick-Handler
 document.querySelectorAll('.buddy-card').forEach(card => {
     card.addEventListener('click', () => {
-        document.querySelectorAll('.buddy-card').forEach(c => {
-            c.classList.remove('selected');
-            c.setAttribute('aria-pressed', 'false');
-        });
-        card.classList.add('selected');
-        card.setAttribute('aria-pressed', 'true');
         state.buddy = card.dataset.buddy;
+        updateBuddySelectionUI();
         soundManager.uiSelect();
     });
 });
