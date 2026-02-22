@@ -956,6 +956,8 @@ function spawnConfetti() {
     const colors  = ['#A3D8F4', '#FFB6C1', '#FFD700', '#90EE90', '#DDA0DD', '#FFA07A'];
     const count   = 60;
 
+    const fragment = document.createDocumentFragment();
+
     for (let i = 0; i < count; i++) {
         const piece = document.createElement('div');
         piece.className = 'confetti-piece';
@@ -966,8 +968,10 @@ function spawnConfetti() {
         piece.style.background  = colors[Math.floor(Math.random() * colors.length)];
         piece.style.animationDuration  = `${1.5 + Math.random() * 2}s`;
         piece.style.animationDelay     = `${Math.random() * 0.8}s`;
-        container.appendChild(piece);
+        fragment.appendChild(piece);
     }
+
+    container.appendChild(fragment);
 
     // Konfetti nach 4s aufräumen
     setTimeout(() => { container.innerHTML = ''; }, 4500);
