@@ -17,6 +17,7 @@ const state = {
 };
 
 let cachedAlpacaBrushEl = null;
+let cachedMouthEl = null;
 
 /* ---- ZAHNPUTZ-PHASEN ---- */
 // (Phasen sind jetzt in phase-utils.js definiert)
@@ -600,7 +601,10 @@ const expressions = {
 
 function setExpression(expressionName) {
     const expr = expressions[expressionName] || expressions.neutral;
-    const mouth = document.getElementById('mouth-brushing');
+    if (!cachedMouthEl || !cachedMouthEl.isConnected) {
+        cachedMouthEl = document.getElementById('mouth-brushing');
+    }
+    const mouth = cachedMouthEl;
     if (mouth) {
         mouth.setAttribute('d', expr.mouth);
     }
