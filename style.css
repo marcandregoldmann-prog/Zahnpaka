@@ -565,6 +565,7 @@ input[type="text"]:focus {
 /* Blinking Eyes */
 .buddy-eye {
     transform-origin: center;
+    transform-box: fill-box;
     animation: blink 4s infinite;
 }
 
