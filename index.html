@@ -151,22 +151,70 @@
         <!-- Anweisungsbox -->
         <div class="instruction-box">
             <h2 id="instruction-text" aria-live="assertive">Bist du bereit?</h2>
-            <div id="timer-display" role="status" aria-live="off" aria-label="Zeit verbleibend">03:00</div>
+
+            <div class="timer-container">
+                <!-- Großer Zahn für den Fortschritt -->
+                <div class="big-tooth-wrapper">
+                    <svg id="big-tooth-progress" viewBox="0 0 120 140" class="big-tooth-svg" role="img" aria-label="Ein großer Zahn, der langsam sauber wird">
+                        <!-- Clean Tooth Body -->
+                        <path d="M 30 40 Q 30 10 60 10 Q 90 10 90 40 L 90 80 Q 90 130 75 130 Q 60 130 60 100 Q 60 130 45 130 Q 30 130 30 80 Z" fill="#FFF" stroke="#E0E0E0" stroke-width="3"/>
+
+                        <!-- Shine / Glanz (wird sichtbarer wenn sauber) -->
+                        <path d="M 40 30 Q 45 20 55 30" fill="none" stroke="#FFF" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+
+                        <!-- Dreck-Ebene (wird ausgeblendet) -->
+                        <g id="tooth-dirt">
+                            <circle cx="45" cy="50" r="6" fill="#8B5A2B" opacity="0.8"/> <!-- Karies-Braun -->
+                            <circle cx="75" cy="40" r="8" fill="#6B8E23" opacity="0.7"/> <!-- Belag-Grün -->
+                            <circle cx="60" cy="70" r="10" fill="#CD853F" opacity="0.6"/>
+                            <ellipse cx="80" cy="90" rx="5" ry="8" fill="#556B2F" opacity="0.7"/>
+                            <path d="M 35 80 Q 45 90 50 80" stroke="#8B4513" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+                            <path d="M 70 110 Q 80 100 85 110" stroke="#556B2F" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+                        </g>
+
+                        <!-- Sparkles (initial hidden) -->
+                        <g id="tooth-sparkles" style="opacity: 0; transition: opacity 0.5s;">
+                            <text x="30" y="30" font-size="20">✨</text>
+                            <text x="80" y="20" font-size="20">✨</text>
+                            <text x="50" y="100" font-size="20">✨</text>
+                        </g>
+                    </svg>
+
+                    <!-- Timer Overlay -->
+                    <div id="timer-display" role="status" aria-live="off" aria-label="Zeit verbleibend">03:00</div>
+                </div>
+            </div>
         </div>
 
         <!-- Zahn-Guide -->
         <div class="visual-guide">
-            <svg viewBox="0 0 120 70" class="teeth-svg" aria-label="Zahnschema: aktiver Bereich wird hervorgehoben" role="img">
-                <rect x="22" y="12" width="14" height="18" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="38" y="10" width="16" height="20" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="56" y="10" width="16" height="20" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="74" y="12" width="14" height="18" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="22" y="38" width="14" height="18" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="38" y="40" width="16" height="18" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="56" y="40" width="16" height="18" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect x="74" y="38" width="14" height="18" rx="6" fill="#EEE" stroke="#DDD" stroke-width="1.5"/>
-                <rect id="zone-oben"  x="20" y="8"  width="76" height="26" rx="8" fill="none" stroke="transparent" stroke-width="3"/>
-                <rect id="zone-unten" x="20" y="36" width="76" height="24" rx="8" fill="none" stroke="transparent" stroke-width="3"/>
+            <svg viewBox="0 0 170 85" class="teeth-svg" aria-label="Zahnschema: aktiver Bereich wird hervorgehoben" role="img">
+                <!-- Oben -->
+                <g id="zone-oben">
+                    <rect x="10" y="5" width="13" height="20" rx="4" class="tooth"/>
+                    <rect x="25" y="5" width="13" height="20" rx="4" class="tooth"/>
+                    <rect x="40" y="5" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="53" y="5" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="66" y="5" width="13" height="24" rx="4" class="tooth"/>
+                    <rect x="81" y="5" width="13" height="24" rx="4" class="tooth"/>
+                    <rect x="96" y="5" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="109" y="5" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="122" y="5" width="13" height="20" rx="4" class="tooth"/>
+                    <rect x="137" y="5" width="13" height="20" rx="4" class="tooth"/>
+                </g>
+                <!-- Unten -->
+                <g id="zone-unten">
+                    <rect x="10" y="45" width="13" height="20" rx="4" class="tooth"/>
+                    <rect x="25" y="45" width="13" height="20" rx="4" class="tooth"/>
+                    <rect x="40" y="42" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="53" y="42" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="66" y="42" width="13" height="24" rx="4" class="tooth"/>
+                    <rect x="81" y="42" width="13" height="24" rx="4" class="tooth"/>
+                    <rect x="96" y="42" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="109" y="42" width="11" height="24" rx="4" class="tooth"/>
+                    <rect x="122" y="45" width="13" height="20" rx="4" class="tooth"/>
+                    <rect x="137" y="45" width="13" height="20" rx="4" class="tooth"/>
+                </g>
             </svg>
             <p id="zone-label" class="zone-label">Gleich geht's los!</p>
         </div>

@@ -72,6 +72,7 @@ const introTexts = [
    ============================================ */
 const soundManager = {
     ctx: null,
+    noiseBuffer: null,
 
     _ensureCtx() {
         if (!this.ctx) {
@@ -82,9 +83,19 @@ const soundManager = {
             }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume()
-                .catch(() => { /* Ignore */ });
+            this.ctx.resume().catch(() => {});
         }
+    },
+
+    _createNoiseBuffer() {
+        if (!this.ctx) return null;
+        const bufferSize = this.ctx.sampleRate * 2; // 2 Sekunden Puffer
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        return buffer;
     },
 
     _playTone(freq, duration, type = 'sine', gainVal = 0.18) {
@@ -105,29 +116,96 @@ const soundManager = {
         } catch (e) {}
     },
 
+    scrub() {
+        // Schrubb-Geräusch: Gefiltertes Rauschen
+        if (!state.soundEnabled) return;
+        this._ensureCtx();
+        if (!this.ctx) return;
+
+        if (!this.noiseBuffer) this.noiseBuffer = this._createNoiseBuffer();
+
+        try {
+            const src = this.ctx.createBufferSource();
+            src.buffer = this.noiseBuffer;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1200;
+            filter.Q.value = 1;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+
+            src.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            src.start();
+            src.stop(this.ctx.currentTime + 0.2);
+        } catch(e) {}
+    },
+
+    fireworkBoom() {
+        // Explosions-Geräusch
+        if (!state.soundEnabled) return;
+        this._ensureCtx();
+        if (!this.ctx) return;
+
+        if (!this.noiseBuffer) this.noiseBuffer = this._createNoiseBuffer();
+
+        try {
+            // Rauschen (Explosion)
+            const src = this.ctx.createBufferSource();
+            src.buffer = this.noiseBuffer;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 1.0);
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.0);
+
+            src.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            src.start();
+            src.stop(this.ctx.currentTime + 1.2);
+
+            // Tiefer Sinus-Kick
+            this._playTone(80, 0.5, 'sine', 0.2);
+        } catch(e) {}
+    },
+
     phaseStart() {
-        // Sanfter Glocken-Akzent: zwei Töne
         this._playTone(523, 0.25);
         setTimeout(() => this._playTone(659, 0.3), 180);
     },
 
     praise() {
-        // Fröhliches Chime
         [523, 587, 659, 784].forEach((f, i) =>
             setTimeout(() => this._playTone(f, 0.2, 'sine', 0.14), i * 100)
         );
     },
 
     celebration() {
-        // Kleiner Jubel-Fanfare
-        const melody = [523, 659, 784, 1047, 784, 1047];
+        // Großes Fanfare für das Ende
+        const melody = [
+            523, 523, 523, 659, 784, 1047, // C E G C
+            880, 1047, 1175, 1047          // A C D C
+        ];
+        const timing = [
+            0, 150, 300, 500, 700, 900,
+            1200, 1400, 1600, 2000
+        ];
+
         melody.forEach((f, i) =>
-            setTimeout(() => this._playTone(f, 0.25, 'triangle', 0.2), i * 130)
+            setTimeout(() => this._playTone(f, 0.2, 'triangle', 0.2), timing[i])
         );
     },
 
     giggle() {
-        // Kichern: 3 kurze hohe Töne
         const notes = [800, 1000, 1200, 900];
         notes.forEach((f, i) =>
             setTimeout(() => this._playTone(f, 0.1, 'sine', 0.15), i * 80)
@@ -765,6 +843,29 @@ function updateDisplay() {
     // Fortschritts-Dots
     updateProgressDots();
 
+    // Zahn-Fortschritt (Dreck ausblenden)
+    const totalTime = 180;
+    const progress = (totalTime - state.timer) / totalTime; // 0..1
+    const dirtEl = document.getElementById('tooth-dirt');
+    const sparklesEl = document.getElementById('tooth-sparkles');
+
+    if (dirtEl) {
+        // Opazität von 1 (dreckig) auf 0 (sauber)
+        // Wir lassen es etwas früher sauber aussehen (bei 90%)
+        let opacity = 1 - (progress * 1.1);
+        if (opacity < 0) opacity = 0;
+        dirtEl.style.opacity = opacity;
+    }
+
+    if (sparklesEl) {
+        // Sparkles erst am Ende einblenden
+        if (progress > 0.95) {
+            sparklesEl.style.opacity = 1;
+        } else {
+            sparklesEl.style.opacity = 0;
+        }
+    }
+
     // Phase prüfen
     const newPhaseIdx = getCurrentPhaseIndex();
     if (newPhaseIdx !== state.currentPhaseIndex) {
@@ -847,6 +948,9 @@ function createSparkle() {
     const container = document.getElementById('buddy-container-brushing');
     if (!container) return;
 
+    // Sound
+    soundManager.scrub();
+
     // Sparkle relativ zum Mund-Bereich
     const sparkle = document.createElement('div');
     sparkle.className = 'sparkle';
@@ -875,16 +979,51 @@ function createSparkle() {
 }
 
 /* ============================================
-   KONFETTI
+   KONFETTI & FEUERWERK
    ============================================ */
+function spawnFirework(delay = 0) {
+    setTimeout(() => {
+        const container = document.getElementById('confetti-container');
+        if (!container) return;
+
+        soundManager.fireworkBoom();
+
+        const centerX = 20 + Math.random() * 60; // 20-80% Breite
+        const centerY = 15 + Math.random() * 40; // 15-55% Höhe
+        const color = ['#FFD700', '#FF6B6B', '#4A90E2', '#90EE90', '#DDA0DD'][Math.floor(Math.random() * 5)];
+
+        const fragment = document.createDocumentFragment();
+        for (let i = 0; i < 24; i++) {
+            const p = document.createElement('div');
+            p.className = 'firework-particle';
+            p.style.left = centerX + '%';
+            p.style.top = centerY + '%';
+            p.style.backgroundColor = color;
+
+            // Zufalls-Richtung
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = 60 + Math.random() * 100; // Pixel Distanz
+
+            p.style.setProperty('--tx', Math.cos(angle) * velocity + 'px');
+            p.style.setProperty('--ty', Math.sin(angle) * velocity + 'px');
+
+            fragment.appendChild(p);
+
+            // Cleanup pro Partikel
+            setTimeout(() => p.remove(), 1200);
+        }
+        container.appendChild(fragment);
+    }, delay);
+}
+
 function spawnConfetti() {
     const container = document.getElementById('confetti-container');
     if (!container) return;
     container.innerHTML = '';
 
+    // 1. Konfetti Regen
     const colors  = ['#A3D8F4', '#FFB6C1', '#FFD700', '#90EE90', '#DDA0DD', '#FFA07A'];
-    const count   = 60;
-
+    const count   = 50;
     const fragment = document.createDocumentFragment();
 
     for (let i = 0; i < count; i++) {
@@ -899,11 +1038,17 @@ function spawnConfetti() {
         piece.style.animationDelay     = `${Math.random() * 0.8}s`;
         fragment.appendChild(piece);
     }
-
     container.appendChild(fragment);
 
-    // Konfetti nach 4s aufräumen
-    setTimeout(() => { container.innerHTML = ''; }, 4500);
+    // 2. Feuerwerk-Sequenz
+    spawnFirework(200);
+    spawnFirework(800);
+    spawnFirework(1500);
+    spawnFirework(2200);
+    spawnFirework(3000);
+
+    // Cleanup alles
+    setTimeout(() => { container.innerHTML = ''; }, 5000);
 }
 
 /* ============================================
