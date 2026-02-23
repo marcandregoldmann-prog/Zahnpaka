@@ -461,7 +461,7 @@ input[type="text"]:focus {
     z-index: 1;
 }
 
-/* Instruction Box */
+/* Instruction Box & Big Tooth Timer */
 .instruction-box {
     width: 100%;
     padding: 8px 16px 4px;
@@ -474,14 +474,42 @@ input[type="text"]:focus {
     margin: 0 0 6px;
 }
 
+.timer-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.big-tooth-wrapper {
+    position: relative;
+    width: 140px;
+    height: 160px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.big-tooth-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+}
+
 #timer-display {
-    font-size: 3rem;
+    position: absolute;
+    bottom: 25px;
+    font-size: 2.2rem;
     font-weight: 900;
     color: var(--primary-dark);
     letter-spacing: 2px;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    z-index: 10;
+    text-shadow: 0 2px 4px rgba(255,255,255,0.9), 0 0 8px #fff;
 }
+
 
 /* ============================================
    VISUAL GUIDE – ZAHNSCHEMA
@@ -507,17 +535,28 @@ input[type="text"]:focus {
 }
 
 /* Aktive Zone – sanftes Gold-Leuchten */
-.active-zone-oben rect,
-.active-zone-unten rect {
-    transition: fill 0.5s, stroke 0.5s;
+.tooth {
+    transition: fill 0.5s, stroke 0.5s, transform 0.3s;
+    fill: #F5F5F5;
+    stroke: #DDD;
+    stroke-width: 1.5;
 }
 
-#zone-oben.active-zone  { fill: rgba(255, 215, 0, 0.25) !important; stroke: #FFD700 !important; stroke-width: 3 !important; }
-#zone-unten.active-zone { fill: rgba(255, 215, 0, 0.25) !important; stroke: #FFD700 !important; stroke-width: 3 !important; }
+#zone-oben.active-zone .tooth,
+#zone-unten.active-zone .tooth {
+    fill: #FFFACD !important;
+    stroke: #FFD700 !important;
+    stroke-width: 2 !important;
+    transform: scale(1.05); /* Leichtes Pulsieren/Hervorheben */
+}
 
 /* Erledigt Zone – Grün -->  */
-#zone-oben.done-zone  { fill: rgba(144, 238, 144, 0.3) !important; stroke: #5CBA5C !important; stroke-width: 2 !important; }
-#zone-unten.done-zone { fill: rgba(144, 238, 144, 0.3) !important; stroke: #5CBA5C !important; stroke-width: 2 !important; }
+#zone-oben.done-zone .tooth,
+#zone-unten.done-zone .tooth {
+    fill: #E8F5E9 !important;
+    stroke: #81C784 !important;
+    stroke-width: 1.5 !important;
+}
 
 /* ============================================
    FINISH SCREEN
@@ -565,6 +604,7 @@ input[type="text"]:focus {
 /* Blinking Eyes */
 .buddy-eye {
     transform-origin: center;
+    transform-box: fill-box;
     animation: blink 4s infinite;
 }
 
@@ -618,6 +658,21 @@ input[type="text"]:focus {
 @keyframes confettiFall {
     0%   { transform: translateY(0) rotate(0deg) scaleX(1); opacity: 0.9; }
     100% { transform: translateY(110vh) rotate(720deg) scaleX(0.5); opacity: 0; }
+}
+
+/* Firework Particles */
+.firework-particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: fireworkBurst 1s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes fireworkBurst {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
 }
 
 /* ============================================
