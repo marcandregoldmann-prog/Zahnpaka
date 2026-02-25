@@ -797,8 +797,11 @@ function getCurrentPhaseIndex() {
 
 function onPhaseChange(newIndex) {
     const phase = phases[newIndex];
-    document.getElementById('instruction-text').textContent = phase.text;
-    setSpeechBubble(phase.tips[0]);
+    // Haupttext in die Sprechblase (zum Vorlesen)
+    setSpeechBubble(phase.text);
+    // Erster Tipp in die Überschrift
+    document.getElementById('instruction-text').textContent = phase.tips[0];
+
     highlightZone(phase.zone);
     setExpression(phase.expression || 'encouraging');
     triggerAlpacaReaction('phaseChange');
@@ -812,13 +815,19 @@ function getSpeechForTimer() {
     const phaseIdx = getCurrentPhaseIndex();
     const phase    = phases[phaseIdx];
 
-    // Jede 20 Sekunden innerhalb der Phase einen Tipp rotieren
+    if (!phase) return '';
+
+    // Jede 10 Sekunden innerhalb der Phase einen Tipp rotieren
     const tipElapsed = phase.startAt - state.timer;
     const tipIndex   = Math.floor(tipElapsed / 10) % phase.tips.length;
     return phase.tips[tipIndex];
 }
 
 function saySomethingRandom() {
+    // Zufällige Sprechblasen-Inhalte zusätzlich zum Haupttext
+    // Diese Funktion überschreibt temporär den Haupttext in der Bubble
+    // Das ist okay, solange der Haupttext beim Phasenwechsel wiederkommt.
+
     const phaseIdx = getCurrentPhaseIndex();
     const msgs     = encouragementMessages;
     const pool     = [
@@ -840,6 +849,16 @@ function updateDisplay() {
     const secs = state.timer % 60;
     document.getElementById('timer-display').textContent =
         `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    // Tipp rotieren (in instruction-text statt Bubble)
+    const phaseIdx = getCurrentPhaseIndex();
+    if (phaseIdx >= 0) {
+        const currentTip = getSpeechForTimer();
+        const instrEl = document.getElementById('instruction-text');
+        if (instrEl && currentTip && instrEl.textContent !== currentTip) {
+            instrEl.textContent = currentTip;
+        }
+    }
 
     // Fortschritts-Dots
     updateProgressDots();
@@ -981,9 +1000,17 @@ function startBrushing() {
 
     initProgressDots();
     setExpression('encouraging');
-    setSpeechBubble('Schnapp dir deine Bürste! 🪥');
+
+    // Start-Zustand:
+    // Haupttext (Bubble): Erste Anweisung
+    // Überschrift (Instruction): Erster Tipp oder "Bereit?"
+
+    // Wir holen uns Phase 0
+    const phase0 = phases[0];
+    setSpeechBubble(phase0.text);
     document.getElementById('instruction-text').textContent = 'Bist du bereit?';
-    highlightZone('zone-unten');
+
+    highlightZone(phase0.zone);
 
     // Erster Aufruf sofort
     updateDisplay();
