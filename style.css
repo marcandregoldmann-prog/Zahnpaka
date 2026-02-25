@@ -199,10 +199,9 @@ p {
    MUTE-BUTTON
    ============================================ */
 
-.btn-mute {
+.btn-mute, .btn-pause {
     position: absolute;
     top: 16px;
-    right: 16px;
     z-index: 100;
     background: var(--bg-color);
     border: 2px solid var(--primary);
@@ -220,8 +219,39 @@ p {
     padding: 0;
 }
 
-.btn-mute:active { transform: scale(0.9); }
+.btn-mute { left: 16px; right: auto; }
+.btn-pause { right: 16px; left: auto; }
+
+.btn-mute:active, .btn-pause:active { transform: scale(0.9); }
 .btn-mute.muted  { background: #FFE4E4; border-color: var(--accent-dark); }
+.btn-pause.active { background: #FFE4E4; border-color: var(--accent-dark); } /* Pause active state */
+
+/* Global Pause State */
+body.is-paused * {
+    animation-play-state: paused !important;
+}
+body.is-paused .alpaka-svg {
+    filter: grayscale(0.3);
+    opacity: 0.9;
+    transition: filter 0.3s;
+}
+
+/* Pulsing Dirt (Zahnteufel-Jagd) */
+.dirt-pulse path, .dirt-pulse circle, .dirt-pulse ellipse {
+    animation: dirtPulse 0.8s infinite alternate !important; /* Important to override pause? No, pause should stop it too */
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+/* Override pause for the pulse itself?
+   Actually, if we pause, the "hunting" stops too. So pausing animation is correct.
+   But the class .dirt-pulse is added dynamically.
+*/
+
+@keyframes dirtPulse {
+    0% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 0 transparent); }
+    100% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 6px #FF6B6B); }
+}
 
 /* ============================================
    BUTTONS
