@@ -12,6 +12,7 @@ const state = {
     timer: 180,
     interval: null,
     currentPhaseIndex: -1,
+    isPaused: false,
     soundEnabled: localStorage.getItem('zahnpaka-sound') !== 'muted',
     introStep: 0,
 };
@@ -846,15 +847,40 @@ function updateDisplay() {
     // Zahn-Fortschritt (Dreck ausblenden)
     const totalTime = 180;
     const progress = (totalTime - state.timer) / totalTime; // 0..1
-    const dirtEl = document.getElementById('tooth-dirt');
+    const dirtGeneral = document.getElementById('tooth-dirt-general');
+    const dirtStubborn = document.getElementById('tooth-dirt-stubborn');
     const sparklesEl = document.getElementById('tooth-sparkles');
 
-    if (dirtEl) {
+    if (dirtGeneral) {
         // Opazität von 1 (dreckig) auf 0 (sauber)
         // Wir lassen es etwas früher sauber aussehen (bei 90%)
         let opacity = 1 - (progress * 1.1);
         if (opacity < 0) opacity = 0;
-        dirtEl.style.opacity = opacity;
+        dirtGeneral.style.opacity = opacity;
+    }
+
+    if (dirtStubborn) {
+        // Hartnäckige Teufel: Bleiben bis Sekunde 11 (Ende Phase 5)
+        // Phase 5: 40s - 11s (Teufel-Jagd)
+        if (state.timer > 11) {
+            dirtStubborn.style.opacity = 0.8;
+            if (state.timer <= 40) {
+                dirtStubborn.classList.add('dirt-pulse');
+            } else {
+                dirtStubborn.classList.remove('dirt-pulse');
+            }
+        } else {
+            // Ab Sekunde 11 schnell ausblenden
+            // Wir haben 10 Sekunden bis 0.
+            // 11s -> 1, 0s -> 0? Oder schneller?
+            // Sagen wir in 5 Sekunden weg (11s -> 6s)
+            let remaining = state.timer;
+            let subOpacity = remaining / 6;
+            if (subOpacity > 1) subOpacity = 1;
+            if (subOpacity < 0) subOpacity = 0;
+            dirtStubborn.style.opacity = subOpacity;
+            dirtStubborn.classList.remove('dirt-pulse');
+        }
     }
 
     if (sparklesEl) {
@@ -887,19 +913,12 @@ function updateDisplay() {
 /* ============================================
    ZAHNPUTZEN STARTEN
    ============================================ */
-function startBrushing() {
-    state.timer = 180;
-    state.currentPhaseIndex = -1;
-    initProgressDots();
-    setExpression('encouraging');
-    setSpeechBubble('Schnapp dir deine Bürste! 🪥');
-    document.getElementById('instruction-text').textContent = 'Bist du bereit?';
-    highlightZone('zone-unten');
-
-    // Erster Aufruf sofort
-    updateDisplay();
+function startTimerLoop() {
+    if (state.interval) clearInterval(state.interval);
 
     state.interval = setInterval(() => {
+        if (state.isPaused) return;
+
         state.timer--;
         updateDisplay();
 
@@ -919,10 +938,66 @@ function startBrushing() {
     }, 1000);
 }
 
+function togglePause() {
+    state.isPaused = !state.isPaused;
+    const btn = document.getElementById('btn-pause');
+
+    if (state.isPaused) {
+        // PAUSE
+        if (state.interval) clearInterval(state.interval);
+        ttsManager.cancel();
+        document.body.classList.add('is-paused');
+        if (btn) {
+            btn.textContent = '▶️';
+            btn.setAttribute('aria-label', 'Weiter');
+            btn.classList.add('active');
+        }
+    } else {
+        // WEITER
+        document.body.classList.remove('is-paused');
+        startTimerLoop();
+        if (btn) {
+            btn.textContent = '⏸️';
+            btn.setAttribute('aria-label', 'Pause');
+            btn.classList.remove('active');
+        }
+    }
+}
+
+function startBrushing() {
+    state.timer = 180;
+    state.currentPhaseIndex = -1;
+    state.isPaused = false;
+    document.body.classList.remove('is-paused'); // Sicherstellen, dass Pause weg ist
+
+    // Pause-Button anzeigen
+    const btnPause = document.getElementById('btn-pause');
+    if (btnPause) {
+        btnPause.style.display = 'flex';
+        btnPause.textContent = '⏸️';
+        btnPause.setAttribute('aria-label', 'Pause');
+        btnPause.classList.remove('active');
+    }
+
+    initProgressDots();
+    setExpression('encouraging');
+    setSpeechBubble('Schnapp dir deine Bürste! 🪥');
+    document.getElementById('instruction-text').textContent = 'Bist du bereit?';
+    highlightZone('zone-unten');
+
+    // Erster Aufruf sofort
+    updateDisplay();
+    startTimerLoop();
+}
+
 /* ============================================
    ABSCHLUSS
    ============================================ */
 function finish() {
+    // Pause-Button verstecken
+    const btnPause = document.getElementById('btn-pause');
+    if (btnPause) btnPause.style.display = 'none';
+
     document.querySelectorAll('.user-name').forEach(el => {
         el.textContent = state.name;
     });
@@ -1090,6 +1165,14 @@ function updateMuteButton() {
 /* ============================================
    EVENT-LISTENER
    ============================================ */
+
+// Pause-Button
+const btnPause = document.getElementById('btn-pause');
+if (btnPause) {
+    btnPause.addEventListener('click', () => {
+        if (state.timer > 0) togglePause();
+    });
+}
 
 // Mute-Button
 document.getElementById('btn-mute').addEventListener('click', () => {
