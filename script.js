@@ -267,7 +267,6 @@ const ttsManager = {
 
         // Fallback-Check
         if (this.useFallback) {
-            console.log('[TTS-Native] Speaking:', clean);
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(clean);
             utterance.lang = 'de-DE';
