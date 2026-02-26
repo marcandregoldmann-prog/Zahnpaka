@@ -736,8 +736,10 @@ function showScreen(id) {
    FORTSCHRITTS-DOTS
    ============================================ */
 const TOTAL_DOTS = 12;
+let cachedProgressDots = [];
 
 function initProgressDots() {
+    cachedProgressDots = [];
     const container = document.getElementById('progress-dots');
     if (!container) return;
     container.innerHTML = '';
@@ -746,6 +748,7 @@ function initProgressDots() {
         dot.className = 'progress-dot';
         dot.id = `dot-${i}`;
         container.appendChild(dot);
+        cachedProgressDots.push(dot);
     }
     container.setAttribute('aria-valuenow', '0');
 }
@@ -756,8 +759,16 @@ function updateProgressDots() {
     const container = document.getElementById('progress-dots');
     if (container) container.setAttribute('aria-valuenow', completed);
 
+    // Fallback falls Array leer ist (sollte via initProgressDots gefüllt sein)
+    if (cachedProgressDots.length === 0) {
+        for (let i = 0; i < TOTAL_DOTS; i++) {
+            const dot = document.getElementById(`dot-${i}`);
+            if (dot) cachedProgressDots.push(dot);
+        }
+    }
+
     for (let i = 0; i < TOTAL_DOTS; i++) {
-        const dot = document.getElementById(`dot-${i}`);
+        const dot = cachedProgressDots[i];
         if (!dot) continue;
         if (i < completed) {
             dot.className = 'progress-dot done';
