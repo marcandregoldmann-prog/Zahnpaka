@@ -98,7 +98,37 @@ function getPhaseIndexForTime(timer) {
     return phases.length - 1;
 }
 
+/**
+ * Ermittelt den aktuellen Tipp/Spruch basierend auf der Zeit.
+ * Rotiert alle 10 Sekunden durch die Tipps der aktuellen Phase.
+ * @param {number} timer - Verbleibende Zeit in Sekunden.
+ * @returns {string} - Der anzuzeigende Tipp.
+ */
+function getSpeechForTimer(timer) {
+    const phaseIdx = getPhaseIndexForTime(timer);
+    const phase = phases[phaseIdx];
+
+    if (!phase || !phase.tips || phase.tips.length === 0) {
+        return '';
+    }
+
+    // Zeit seit Beginn der Phase
+    let tipElapsed = phase.startAt - timer;
+
+    // Negative Zeit (z.B. minimaler Overshoot) abfangen
+    if (tipElapsed < 0) {
+        tipElapsed = 0;
+    }
+
+    // Jede 10 Sekunden rotieren
+    // Beispiel: start=180, timer=175 -> elapsed=5 -> index=0
+    //           start=180, timer=170 -> elapsed=10 -> index=1
+    const tipIndex = Math.floor(tipElapsed / 10) % phase.tips.length;
+
+    return phase.tips[tipIndex];
+}
+
 // Export für Node.js Tests
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { phases, getPhaseIndexForTime };
+    module.exports = { phases, getPhaseIndexForTime, getSpeechForTimer };
 }

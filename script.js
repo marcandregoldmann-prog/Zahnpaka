@@ -821,18 +821,6 @@ function onPhaseChange(newIndex) {
 /* ============================================
    ZUFÄLLIGE ERMUTIGUNG
    ============================================ */
-function getSpeechForTimer() {
-    const phaseIdx = getCurrentPhaseIndex();
-    const phase    = phases[phaseIdx];
-
-    if (!phase) return '';
-
-    // Jede 10 Sekunden innerhalb der Phase einen Tipp rotieren
-    const tipElapsed = phase.startAt - state.timer;
-    const tipIndex   = Math.floor(tipElapsed / 10) % phase.tips.length;
-    return phase.tips[tipIndex];
-}
-
 function saySomethingRandom() {
     // Zufällige Sprechblasen-Inhalte zusätzlich zum Haupttext
     // Diese Funktion überschreibt temporär den Haupttext in der Bubble
@@ -863,7 +851,7 @@ function updateDisplay() {
     // Tipp rotieren (in instruction-text statt Bubble)
     const phaseIdx = getCurrentPhaseIndex();
     if (phaseIdx >= 0) {
-        const currentTip = getSpeechForTimer();
+        const currentTip = getSpeechForTimer(state.timer);
         const instrEl = document.getElementById('instruction-text');
         if (instrEl && currentTip && instrEl.textContent !== currentTip) {
             instrEl.textContent = currentTip;

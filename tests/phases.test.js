@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { getPhaseIndexForTime, phases } = require('../phase-utils.js');
+const { getPhaseIndexForTime, phases, getSpeechForTimer } = require('../phase-utils.js');
 
 test('Phase Transitions (KAI Method - 6 Phases)', async (t) => {
     // Phases:
@@ -62,5 +62,65 @@ test('Phase Transitions (KAI Method - 6 Phases)', async (t) => {
 
         // -1 is not in any range (min is 0), so it falls through to default (5)
         assert.strictEqual(getPhaseIndexForTime(-1), 5, 'Negative values default to last phase');
+    });
+});
+
+test('Speech/Tips Rotation', async (t) => {
+    // Phase 0: 180-151. Tips length = 3.
+    // Tips rotate every 10s.
+    // 180 (start) -> elapsed 0 -> index 0
+    // 175 -> elapsed 5 -> index 0
+    // 170 -> elapsed 10 -> index 1
+    // 160 -> elapsed 20 -> index 2
+    // 155 -> elapsed 25 -> index 2
+    // 151 -> elapsed 29 -> index 2 (29/10 = 2.9 -> 2)
+
+    await t.test('Standard rotation in Phase 0', () => {
+        const p0 = phases[0];
+        assert.strictEqual(getSpeechForTimer(180), p0.tips[0], 'Start of phase should show tip 0');
+        assert.strictEqual(getSpeechForTimer(175), p0.tips[0], '5s in should show tip 0');
+        assert.strictEqual(getSpeechForTimer(170), p0.tips[1], '10s in should show tip 1');
+        assert.strictEqual(getSpeechForTimer(160), p0.tips[2], '20s in should show tip 2');
+    });
+
+    await t.test('Rotation with modulo', () => {
+        // Phase 3: 90-41 (duration 49s). Tips length 3.
+        // 90 -> tip 0
+        // 80 -> tip 1
+        // 70 -> tip 2
+        // 60 -> tip 0 (30s elapsed. 30/10 = 3. 3%3 = 0)
+        const p3 = phases[3];
+        assert.strictEqual(getSpeechForTimer(60), p3.tips[0], '30s elapsed in Phase 3 should wrap to tip 0');
+    });
+
+    await t.test('Edge Case: Negative elapsed time (overshoot)', () => {
+        // Case: Default phase (Endspurt, index 5). startAt 10.
+        // If timer is 200. getPhaseIndexForTime returns 5 (default).
+        // Phase 5 startAt 10. Elapsed 10 - 200 = -190.
+        // Logic clamps to 0. So it should return Phase 5 Tip 0.
+        const p5 = phases[5];
+        assert.strictEqual(getSpeechForTimer(200), p5.tips[0], 'Timer 200 (way before start) should fallback to Endspurt tip 0');
+    });
+
+    await t.test('Edge Case: Empty tips array', () => {
+        // Backup tips
+        const originalTips = phases[0].tips;
+        phases[0].tips = [];
+
+        const result = getSpeechForTimer(180);
+        assert.strictEqual(result, '', 'Should return empty string for empty tips array');
+
+        // Restore
+        phases[0].tips = originalTips;
+    });
+
+    await t.test('Edge Case: Undefined tips', () => {
+        const originalTips = phases[0].tips;
+        phases[0].tips = undefined;
+
+        const result = getSpeechForTimer(180);
+        assert.strictEqual(result, '', 'Should return empty string for undefined tips');
+
+        phases[0].tips = originalTips;
     });
 });
