@@ -3,14 +3,15 @@
    Offline-Support & Caching
    ============================================= */
 
-const CACHE_NAME = 'zahnpaka-v1';
+const CACHE_NAME = 'zahnpaka-v2';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './script.js',
     './manifest.json',
-    './icon.svg',
+    './icon-192.png',
+    './icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
