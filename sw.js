@@ -3,11 +3,12 @@
    Offline-Support & Caching
    ============================================= */
 
-const CACHE_NAME = 'zahnpaka-v1';
+const CACHE_NAME = 'zahnpaka-v2';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
+    './buddy-svgs.js',
     './script.js',
     './manifest.json',
     './icon.svg',
