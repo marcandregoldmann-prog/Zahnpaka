@@ -114,7 +114,9 @@ const soundManager = {
             gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
             osc.start();
             osc.stop(this.ctx.currentTime + duration);
-        } catch (e) {}
+        } catch (e) {
+            console.warn('SoundManager Error:', e);
+        }
     },
 
     scrub() {
@@ -144,7 +146,9 @@ const soundManager = {
 
             src.start();
             src.stop(this.ctx.currentTime + 0.2);
-        } catch(e) {}
+        } catch(e) {
+            console.warn('SoundManager Error:', e);
+        }
     },
 
     fireworkBoom() {
@@ -176,7 +180,9 @@ const soundManager = {
 
             // Tiefer Sinus-Kick
             this._playTone(80, 0.5, 'sine', 0.2);
-        } catch(e) {}
+        } catch(e) {
+            console.warn('SoundManager Error:', e);
+        }
     },
 
     phaseStart() {
