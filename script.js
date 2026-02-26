@@ -19,6 +19,7 @@ const state = {
 
 let cachedAlpacaBrushEl = null;
 let cachedMouthEl = null;
+let cachedBuddyContainerBrushing = null;
 
 /* ---- ZAHNPUTZ-PHASEN ---- */
 // (Phasen sind jetzt in phase-utils.js definiert)
@@ -595,6 +596,7 @@ function renderBuddy() {
         // Entferne alte Listener (durch Klonen oder explizites Entfernen, hier Klonen einfacher)
         const newBrushEl = brushEl.cloneNode(true);
         brushEl.parentNode.replaceChild(newBrushEl, brushEl);
+        cachedBuddyContainerBrushing = newBrushEl;
 
         // Listener hinzufügen
         newBrushEl.addEventListener('click', () => {
@@ -1047,7 +1049,12 @@ function finish() {
    SPARKLES (PUTZ-EFFEKT)
    ============================================ */
 function createSparkle() {
-    const container = document.getElementById('buddy-container-brushing');
+    let container = cachedBuddyContainerBrushing;
+    if (!container || !container.isConnected) {
+        container = document.getElementById('buddy-container-brushing');
+        cachedBuddyContainerBrushing = container;
+    }
+
     if (!container) return;
 
     // Sound
