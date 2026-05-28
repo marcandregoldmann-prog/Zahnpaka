@@ -440,9 +440,14 @@ function setExpression(expressionName) {
         cachedMouthEl = document.getElementById('mouth-brushing');
     }
     const mouth = cachedMouthEl;
-    if (mouth) {
+    if (!mouth) return;
+
+    mouth.style.transition = 'opacity 0.08s ease';
+    mouth.style.opacity = '0';
+    setTimeout(() => {
         mouth.setAttribute('d', expr.mouth);
-    }
+        mouth.style.opacity = '1';
+    }, 80);
 }
 
 function triggerAlpacaReaction(type) {
@@ -510,13 +515,35 @@ function setSpeechBubble(text) {
    SCREEN-NAVIGATION
    ============================================ */
 function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const target = document.getElementById(id);
-    if (target) {
-        target.classList.add('active');
-        // Fokus auf ersten Button (Accessibility)
-        const btn = target.querySelector('button, input');
-        if (btn) btn.focus();
+    const current = document.querySelector('.screen.active');
+
+    // Konfetti aufräumen wenn Finish-Screen verlassen wird
+    if (current && current.id === 'screen-finish') {
+        const confettiContainer = document.getElementById('confetti-container');
+        if (confettiContainer) confettiContainer.innerHTML = '';
+    }
+
+    const activate = () => {
+        document.querySelectorAll('.screen').forEach(s => {
+            s.classList.remove('active', 'screen-exit');
+        });
+        const target = document.getElementById(id);
+        if (target) {
+            target.classList.add('active');
+            const btn = target.querySelector('button, input');
+            if (btn) btn.focus();
+        }
+    };
+
+    if (current && current.id !== id) {
+        let done = false;
+        const once = () => { if (!done) { done = true; activate(); } };
+        current.classList.add('screen-exit');
+        current.addEventListener('animationend', once, { once: true });
+        // Fallback falls Animation nicht feuert (prefers-reduced-motion o.ä.)
+        setTimeout(once, 300);
+    } else {
+        activate();
     }
 }
 
@@ -722,15 +749,24 @@ function updateDisplay() {
 function startTimerLoop() {
     if (state.interval) clearInterval(state.interval);
 
+    const loopStartTime  = Date.now();
+    const loopStartTimer = state.timer;
+    let lastSecond = loopStartTimer;
+
+    // Alle 200ms prüfen – vermeidet Drift durch setInterval-Ungenauigkeit
     state.interval = setInterval(() => {
         if (state.isPaused) return;
 
-        state.timer--;
+        const elapsed = Math.floor((Date.now() - loopStartTime) / 1000);
+        const remaining = loopStartTimer - elapsed;
+
+        if (remaining === lastSecond) return; // Noch keine neue Sekunde
+        lastSecond = remaining;
+        state.timer = Math.max(remaining, 0);
+
         updateDisplay();
 
-        // Sparkles erzeugen (alle 1s ein paar)
         if (state.timer > 0) {
-            // 2-3 Sparkles pro Sekunde verteilt
             setTimeout(() => createSparkle(), 100);
             setTimeout(() => createSparkle(), 400);
             setTimeout(() => createSparkle(), 700);
@@ -741,7 +777,7 @@ function startTimerLoop() {
             state.interval = null;
             finish();
         }
-    }, 1000);
+    }, 200);
 }
 
 function togglePause() {
