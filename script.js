@@ -1048,8 +1048,13 @@ function renderStreakBadge() {
     badge.style.display = hasProgress ? 'inline-flex' : 'none';
     if (!hasProgress) return;
 
-    setRewardText('streak-count', getActiveStreak(state.rewards));
-    setRewardText('sticker-count', state.rewards.stickers.length);
+    const streak = getActiveStreak(state.rewards);
+    const stickers = state.rewards.stickers.length;
+    setRewardText('streak-count', streak);
+    setRewardText('sticker-count', stickers);
+    // Aussagekräftiger Name für Screenreader; enthält den sichtbaren Text ("Tage")
+    badge.setAttribute('aria-label',
+        `Meine Sammlung ansehen: ${streak} Tage in Folge, ${stickers} Sticker`);
 }
 
 /* Das komplette Sammel-Album rendern. */
@@ -1365,3 +1370,10 @@ renderBuddy();
 
 // Belohnungs-Badge auf dem Start-Screen anzeigen (falls schon geputzt wurde)
 renderStreakBadge();
+
+// Deep-Link aus dem App-Shortcut: ?go=album öffnet direkt die Sammlung
+try {
+    if (new URLSearchParams(location.search).get('go') === 'album') {
+        openAlbum('screen-start');
+    }
+} catch (e) { /* URLSearchParams nicht verfügbar – ignorieren */ }

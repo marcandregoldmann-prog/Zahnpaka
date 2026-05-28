@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://cdn.jsdelivr.net; worker-src 'self' blob:; media-src 'self' blob:; img-src 'self' data:;">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Zahnpaka – die kindgerechte Zahnputz-App mit Alpaka-Freund Alpi. 3 Minuten putzen, Zahnteufel besiegen, Sticker sammeln und Putz-Serien aufbauen. Funktioniert offline.">
+    <meta name="color-scheme" content="light">
     <title>Zahnpaka – Dein Zahnputz-Freund</title>
+
+    <!-- Schnellere Verbindung zu CDN & Modell-Host für den TTS-Download -->
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://huggingface.co">
+
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <meta name="theme-color" content="#F0F4F8">
+    <meta name="theme-color" content="#A3D8F4">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+    <!-- App-Skripte: defer = parallel laden, in Reihenfolge nach DOM-Parse ausführen -->
+    <script defer src="tts-utils.js"></script>
+    <script defer src="phase-utils.js"></script>
+    <script defer src="buddy-svgs.js"></script>
+    <script defer src="rewards-utils.js"></script>
+    <script defer src="script.js"></script>
 </head>
 <body>
 
@@ -40,7 +55,7 @@
         <label for="child-name" class="name-label">Wie heißt du? ✏️</label>
         <input type="text" id="child-name" placeholder="Dein Name" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false">
 
-        <button id="btn-start" class="btn-main" aria-label="Zahnputzen starten">
+        <button id="btn-start" class="btn-main">
             🦷 Zähne putzen!
         </button>
     </section>
@@ -69,16 +84,16 @@
         <p class="subtitle">Wer putzt heute mit dir? 🌟</p>
 
         <div class="buddy-grid">
-            <button class="buddy-card" data-buddy="alpaka" aria-label="Alpi das Alpaka wählen" aria-pressed="false">
-                <div class="buddy-preview" id="preview-alpaka"></div>
+            <button class="buddy-card" data-buddy="alpaka" aria-pressed="false">
+                <div class="buddy-preview" id="preview-alpaka" aria-hidden="true"></div>
                 <span>Alpi Alpaka 🦙</span>
             </button>
-            <button class="buddy-card" data-buddy="katze" aria-label="Mia die Katze wählen" aria-pressed="false">
-                <div class="buddy-preview" id="preview-katze"></div>
+            <button class="buddy-card" data-buddy="katze" aria-pressed="false">
+                <div class="buddy-preview" id="preview-katze" aria-hidden="true"></div>
                 <span>Mia Katze 🐱</span>
             </button>
-            <button class="buddy-card" data-buddy="huhn" aria-label="Hanna das Huhn wählen" aria-pressed="false">
-                <div class="buddy-preview" id="preview-huhn"></div>
+            <button class="buddy-card" data-buddy="huhn" aria-pressed="false">
+                <div class="buddy-preview" id="preview-huhn" aria-hidden="true"></div>
                 <span>Hanna Huhn 🐔</span>
             </button>
         </div>
@@ -297,10 +312,5 @@
 
 </div>
 
-<script src="tts-utils.js"></script>
-<script src="phase-utils.js"></script>
-<script src="buddy-svgs.js"></script>
-<script src="rewards-utils.js"></script>
-<script src="script.js"></script>
 </body>
 </html>

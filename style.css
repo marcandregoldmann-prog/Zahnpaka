@@ -17,6 +17,12 @@
     --white:         #ffffff;
     --radius-card:   24px;
     --shadow-soft:   0 8px 24px rgba(163, 216, 244, 0.3);
+
+    /* Barrierefreie Textfarben – alle >= 4.5:1 auf hellem Grund (WCAG AA) */
+    --accent-text:   #D81B60;   /* tiefes Rosa für Text statt hellem --accent-dark */
+    --gold-text:     #7A5C00;   /* dunkles Gold für Text statt --yellow/#B8860B */
+    --blue-text:     #2671B8;   /* lesbares Blau für Zahlen/Timer statt --primary-dark */
+    --muted:         #6B7280;   /* zugänglicher Grauton statt #AAA/#999 */
 }
 
 /* ---- Reset & Base ---- */
@@ -58,7 +64,7 @@ body {
     text-align: center;
     width: 100%;
     height: 100%;
-    padding: 20px 24px 28px;
+    padding: max(20px, env(safe-area-inset-top, 0px)) 24px max(28px, env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
@@ -94,7 +100,7 @@ p {
 
 .subtitle {
     font-size: 1.15rem;
-    color: var(--accent-dark);
+    color: var(--accent-text);
     font-weight: 600;
     margin-bottom: 12px;
 }
@@ -201,7 +207,7 @@ p {
 
 .btn-mute, .btn-pause {
     position: absolute;
-    top: 16px;
+    top: max(16px, env(safe-area-inset-top, 0px));
     z-index: 100;
     background: var(--bg-color);
     border: 2px solid var(--primary);
@@ -219,8 +225,8 @@ p {
     padding: 0;
 }
 
-.btn-mute { left: 16px; right: auto; }
-.btn-pause { right: 16px; left: auto; }
+.btn-mute  { left: max(16px, env(safe-area-inset-left, 0px)); right: auto; }
+.btn-pause { right: max(16px, env(safe-area-inset-right, 0px)); left: auto; }
 
 .btn-mute:active, .btn-pause:active { transform: scale(0.9); }
 .btn-mute.muted  { background: #FFE4E4; border-color: var(--accent-dark); }
@@ -288,7 +294,7 @@ body.is-paused .alpaka-svg {
 .btn-skip {
     background: none;
     border: none;
-    color: #AAA;
+    color: var(--muted);
     font-size: 0.9rem;
     cursor: pointer;
     margin-top: 8px;
@@ -327,6 +333,11 @@ input[type="text"]:focus {
     outline: none;
     border-color: #4A90E2;
     background: #fff;
+}
+
+input[type="text"]::placeholder {
+    color: var(--muted);
+    opacity: 1; /* Firefox dimmt sonst zusätzlich */
 }
 
 /* ============================================
@@ -534,7 +545,7 @@ input[type="text"]:focus {
     bottom: 25px;
     font-size: 2.2rem;
     font-weight: 900;
-    color: var(--primary-dark);
+    color: var(--blue-text);
     letter-spacing: 2px;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -754,7 +765,7 @@ input[type="text"]:focus {
     margin: 0 0 14px;
     font-size: 1rem;
     font-weight: 700;
-    color: #B8860B;
+    color: var(--gold-text);
     cursor: pointer;
     box-shadow: 0 3px 10px rgba(255, 215, 0, 0.25);
     transition: transform 0.15s, box-shadow 0.15s;
@@ -785,8 +796,8 @@ input[type="text"]:focus {
 
 .btn-album-close {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: max(16px, env(safe-area-inset-top, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px));
     z-index: 100;
     background: var(--bg-color);
     border: 2px solid var(--primary);
@@ -827,7 +838,7 @@ input[type="text"]:focus {
 .album-stat-num {
     font-size: 1.7rem;
     font-weight: 900;
-    color: var(--primary-dark);
+    color: var(--blue-text);
     line-height: 1;
 }
 .album-stat-label {
@@ -939,7 +950,7 @@ input[type="text"]:focus {
 .reward-streak-line {
     font-size: 1.05rem;
     font-weight: 800;
-    color: #B8860B;
+    color: var(--gold-text);
     background: linear-gradient(135deg, #FFF6E5, #FFEACB);
     border: 2px solid var(--yellow);
     border-radius: 14px;
@@ -982,7 +993,7 @@ input[type="text"]:focus {
     position: absolute;
     top: -9px;
     right: -9px;
-    background: var(--accent-dark);
+    background: var(--accent-text);
     color: #fff;
     font-size: 0.6rem;
     font-weight: 800;
@@ -1146,14 +1157,14 @@ input[type="text"]:focus {
 
 #download-status {
     font-size: 0.85rem;
-    color: #999;
+    color: var(--muted);
     text-align: center;
     margin: 8px 0;
 }
 
 .small-text {
     font-size: 0.75rem;
-    color: #AAA;
+    color: var(--muted);
     margin-top: 20px;
     line-height: 1.4;
 }

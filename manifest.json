@@ -1,14 +1,22 @@
 {
     "name": "Zahnpaka – Dein Zahnputz-Freund",
     "short_name": "Zahnpaka",
+    "id": "./",
     "description": "Kindgerechte Zahnputz-App mit Alpaka-Freund Alpi für Kinder ab 3 Jahren",
     "start_url": "./",
+    "scope": "./",
+    "dir": "ltr",
     "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
     "background_color": "#F0F4F8",
     "theme_color": "#A3D8F4",
     "orientation": "portrait-primary",
     "lang": "de",
+    "prefer_related_applications": false,
     "categories": ["kids", "health", "education"],
+    "launch_handler": {
+        "client_mode": "navigate-existing"
+    },
     "icons": [
         {
             "src": "icon-192.png",
@@ -21,6 +29,30 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Meine Sammlung",
+            "short_name": "Sammlung",
+            "description": "Sticker und Putz-Serien ansehen",
+            "url": "./?go=album"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "screenshot-start.png",
+            "sizes": "412x823",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Begrüßung durch deinen Zahnputz-Freund"
+        },
+        {
+            "src": "screenshot-album.png",
+            "sizes": "412x823",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Sticker-Sammlung mit Putz-Serie und Wochenkalender"
         }
     ]
 }
