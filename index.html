@@ -30,6 +30,13 @@
         <h1 id="buddy-greeting">Hallo! Ich bin Alpi! 🦙</h1>
         <p class="subtitle">Dein Zahnputz-Freund!</p>
 
+        <!-- Belohnungs-Badge: zeigt Serie + Sticker, öffnet das Album -->
+        <button id="streak-badge" class="streak-badge" type="button" aria-label="Meine Sammlung ansehen" style="display: none;">
+            <span class="streak-badge-item"><span class="streak-flame" aria-hidden="true">🔥</span><b id="streak-count">0</b> Tage</span>
+            <span class="streak-badge-divider" aria-hidden="true"></span>
+            <span class="streak-badge-item"><span aria-hidden="true">🌟</span> <b id="sticker-count">0</b></span>
+        </button>
+
         <label for="child-name" class="name-label">Wie heißt du? ✏️</label>
         <input type="text" id="child-name" placeholder="Dein Name" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false">
 
@@ -227,6 +234,41 @@
 
     </section>
 
+    <!-- ==================== SAMMEL-ALBUM ==================== -->
+    <section id="screen-album" class="screen" role="main">
+        <button id="btn-album-close" class="btn-album-close" type="button" aria-label="Zurück">⬅️</button>
+
+        <h1>Meine Sammlung 🎁</h1>
+
+        <!-- Serien-Übersicht -->
+        <div class="album-stats">
+            <div class="album-stat">
+                <span class="album-stat-num" id="album-streak">0</span>
+                <span class="album-stat-label">🔥 Tage<br>in Folge</span>
+            </div>
+            <div class="album-stat">
+                <span class="album-stat-num" id="album-longest">0</span>
+                <span class="album-stat-label">🏆 Bester<br>Rekord</span>
+            </div>
+            <div class="album-stat">
+                <span class="album-stat-num" id="album-total">0</span>
+                <span class="album-stat-label">🦷 Mal<br>geputzt</span>
+            </div>
+        </div>
+
+        <!-- Wochenkalender -->
+        <p class="album-section-title">Diese Woche</p>
+        <div id="album-week" class="album-week" role="img" aria-label="Putz-Kalender der letzten sieben Tage"></div>
+
+        <!-- Sticker-Sammlung -->
+        <p class="album-section-title">
+            Sticker <span class="album-count">(<span id="album-collected">0</span>/<span id="album-total-stickers">0</span>)</span>
+        </p>
+        <div id="album-stickers" class="album-grid"></div>
+
+        <button id="btn-album-back" class="btn-main">⬅️ Zurück</button>
+    </section>
+
     <!-- ==================== FINISH-SCREEN ==================== -->
     <section id="screen-finish" class="screen" role="main">
         <div id="confetti-container" aria-hidden="true"></div>
@@ -244,9 +286,13 @@
             <span class="star">⭐</span>
         </div>
 
+        <!-- Belohnung: Serie + neue Sticker (per JS befüllt) -->
+        <div id="reward-reveal" class="reward-reveal" role="status" aria-live="polite"></div>
+
         <p class="finish-tip">Die Zahnteufel wurden besiegt! 👿💨</p>
 
         <button id="btn-restart" class="btn-main">🔄 Nochmal putzen!</button>
+        <button id="btn-finish-album" class="btn-secondary" type="button">🎁 Meine Sammlung</button>
     </section>
 
 </div>
@@ -254,6 +300,7 @@
 <script src="tts-utils.js"></script>
 <script src="phase-utils.js"></script>
 <script src="buddy-svgs.js"></script>
+<script src="rewards-utils.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
