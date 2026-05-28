@@ -15,7 +15,11 @@ const state = {
     isPaused: false,
     soundEnabled: localStorage.getItem('zahnpaka-sound') !== 'muted',
     introStep: 0,
+    rewards: (typeof loadRewardData === 'function') ? loadRewardData() : null,
 };
+
+// Bildschirm, zu dem das Album beim Schließen zurückkehrt
+let albumReturnScreen = 'screen-start';
 
 let cachedAlpacaBrushEl = null;
 let cachedMouthEl = null;
@@ -861,6 +865,15 @@ function finish() {
         }
     });
 
+    // Belohnung verbuchen: Serie aktualisieren, Sticker vergeben, speichern
+    if (typeof recordBrushing === 'function' && state.rewards) {
+        const { data, newStickers, streakInfo } = recordBrushing(state.rewards);
+        state.rewards = data;
+        saveRewardData(data);
+        renderRewardReveal(newStickers, streakInfo);
+        renderStreakBadge();
+    }
+
     showScreen('screen-finish');
     soundManager.celebration();
     spawnConfetti();
@@ -1018,6 +1031,185 @@ function updateMuteButton() {
 }
 
 /* ============================================
+   BELOHNUNGSWELT: STREAK & STICKER
+   ============================================ */
+
+function setRewardText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+/* Streak-Badge auf dem Start-Screen aktualisieren (zeigt aktive Serie + Sticker). */
+function renderStreakBadge() {
+    const badge = document.getElementById('streak-badge');
+    if (!badge || !state.rewards) return;
+
+    const hasProgress = state.rewards.totalSessions > 0;
+    badge.style.display = hasProgress ? 'inline-flex' : 'none';
+    if (!hasProgress) return;
+
+    setRewardText('streak-count', getActiveStreak(state.rewards));
+    setRewardText('sticker-count', state.rewards.stickers.length);
+}
+
+/* Das komplette Sammel-Album rendern. */
+function renderAlbum() {
+    if (!state.rewards) return;
+    const r = state.rewards;
+    const today = getDateString();
+
+    setRewardText('album-streak',  getActiveStreak(r, today));
+    setRewardText('album-longest', r.longestStreak);
+    setRewardText('album-total',   r.totalSessions);
+
+    // Wochenkalender
+    const weekEl = document.getElementById('album-week');
+    if (weekEl) {
+        weekEl.innerHTML = '';
+        getWeekStatus(r.history, today).forEach(day => {
+            const cell = document.createElement('div');
+            cell.className = 'album-day' + (day.done ? ' done' : '') + (day.isToday ? ' today' : '');
+            const label = document.createElement('span');
+            label.className = 'album-day-label';
+            label.textContent = day.label;
+            const dot = document.createElement('span');
+            dot.className = 'album-day-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            dot.textContent = day.done ? '⭐' : '';
+            cell.appendChild(label);
+            cell.appendChild(dot);
+            weekEl.appendChild(cell);
+        });
+    }
+
+    // Sticker-Sammlung
+    const catalog = getStickerCatalog();
+    const owned = new Set(r.stickers);
+    setRewardText('album-collected', r.stickers.length);
+    setRewardText('album-total-stickers', catalog.length);
+
+    const grid = document.getElementById('album-stickers');
+    if (grid) {
+        grid.innerHTML = '';
+        catalog.forEach(s => {
+            const isOwned = owned.has(s.id);
+            const cell = document.createElement('div');
+            cell.className = 'album-sticker ' +
+                (isOwned ? 'owned' : 'locked') +
+                (s.type === 'milestone' ? ' milestone' : '');
+            cell.setAttribute('role', 'img');
+
+            let ariaLabel;
+            if (isOwned) {
+                ariaLabel = `${s.name} – gesammelt`;
+            } else if (s.type === 'milestone') {
+                ariaLabel = `${s.name} – noch gesperrt. So schaltest du ihn frei: ${s.hint}`;
+            } else {
+                ariaLabel = `${s.name} – noch nicht gesammelt`;
+            }
+            cell.setAttribute('aria-label', ariaLabel);
+            cell.title = ariaLabel;
+
+            const emoji = document.createElement('span');
+            emoji.className = 'album-sticker-emoji';
+            emoji.setAttribute('aria-hidden', 'true');
+            emoji.textContent = s.emoji;
+
+            const name = document.createElement('span');
+            name.className = 'album-sticker-name';
+            name.textContent = s.name;
+
+            cell.appendChild(emoji);
+            cell.appendChild(name);
+            grid.appendChild(cell);
+        });
+    }
+}
+
+function openAlbum(fromId) {
+    albumReturnScreen = fromId || 'screen-start';
+
+    // Primär-Button kontextabhängig beschriften
+    const backBtn = document.getElementById('btn-album-back');
+    if (backBtn) {
+        backBtn.textContent = (albumReturnScreen === 'screen-finish')
+            ? '🔄 Nochmal putzen!'
+            : '⬅️ Zurück';
+    }
+
+    renderAlbum();
+    showScreen('screen-album');
+    soundManager.uiSelect();
+}
+
+function closeAlbum() {
+    if (albumReturnScreen === 'screen-finish') {
+        // Vom Finish aus: frischer Durchgang
+        if (state.interval) { clearInterval(state.interval); state.interval = null; }
+        location.reload();
+        return;
+    }
+    renderStreakBadge();
+    showScreen(albumReturnScreen);
+}
+
+/* Sticker-Enthüllung auf dem Finish-Screen aufbauen. */
+function renderRewardReveal(newStickers, streakInfo) {
+    const el = document.getElementById('reward-reveal');
+    if (!el) return;
+    el.innerHTML = '';
+
+    // Serien-Zeile
+    const streakLine = document.createElement('div');
+    streakLine.className = 'reward-streak-line';
+    const dayWord = streakInfo.streak === 1 ? 'Tag' : 'Tage';
+    streakLine.append(`🔥 ${streakInfo.streak} ${dayWord} in Folge!`);
+    if (streakInfo.isNewRecord) {
+        const rec = document.createElement('span');
+        rec.className = 'reward-record';
+        rec.textContent = '🏆 Neuer Rekord!';
+        streakLine.appendChild(rec);
+    }
+    el.appendChild(streakLine);
+
+    // Neue Sticker (max. 4 Karten, damit nichts überläuft)
+    if (newStickers && newStickers.length > 0) {
+        const wrap = document.createElement('div');
+        wrap.className = 'reward-new-stickers';
+
+        newStickers.slice(0, 4).forEach(s => {
+            const isMilestone = s.type === 'milestone';
+            const card = document.createElement('div');
+            card.className = 'reward-sticker-card' + (isMilestone ? ' milestone' : '');
+            card.setAttribute('aria-label',
+                `${isMilestone ? 'Neue Trophäe' : 'Neuer Sticker'}: ${s.name}`);
+
+            const badge = document.createElement('span');
+            badge.className = 'reward-sticker-badge';
+            badge.textContent = isMilestone ? 'Trophäe!' : 'Neu!';
+
+            const emoji = document.createElement('span');
+            emoji.className = 'reward-sticker-emoji';
+            emoji.setAttribute('aria-hidden', 'true');
+            emoji.textContent = s.emoji;
+
+            const name = document.createElement('span');
+            name.className = 'reward-sticker-name';
+            name.textContent = s.name;
+
+            card.appendChild(badge);
+            card.appendChild(emoji);
+            card.appendChild(name);
+            wrap.appendChild(card);
+        });
+        el.appendChild(wrap);
+
+        // Fröhlicher Sticker-Sound nach der Fanfare
+        setTimeout(() => soundManager.giggle(), 700);
+    }
+}
+
+/* ============================================
    EVENT-LISTENER
    ============================================ */
 
@@ -1108,6 +1300,19 @@ document.getElementById('btn-restart').addEventListener('click', () => {
     location.reload();
 });
 
+// Belohnungswelt: Album öffnen/schließen
+const streakBadge = document.getElementById('streak-badge');
+if (streakBadge) streakBadge.addEventListener('click', () => openAlbum('screen-start'));
+
+const btnAlbumClose = document.getElementById('btn-album-close');
+if (btnAlbumClose) btnAlbumClose.addEventListener('click', closeAlbum);
+
+const btnAlbumBack = document.getElementById('btn-album-back');
+if (btnAlbumBack) btnAlbumBack.addEventListener('click', closeAlbum);
+
+const btnFinishAlbum = document.getElementById('btn-finish-album');
+if (btnFinishAlbum) btnFinishAlbum.addEventListener('click', () => openAlbum('screen-finish'));
+
 /* ============================================
    INIT
    ============================================ */
@@ -1157,3 +1362,6 @@ setupBubbleListeners();
 
 // Initiales Rendering des gespeicherten Buddys
 renderBuddy();
+
+// Belohnungs-Badge auf dem Start-Screen anzeigen (falls schon geputzt wurde)
+renderStreakBadge();
