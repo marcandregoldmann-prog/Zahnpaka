@@ -27,4 +27,18 @@ test('Buddy Data Structure', async (t) => {
             });
         });
     });
+
+    await t.test('brushing-Variante bleibt riggbar (Mimik & Reaktionen)', () => {
+        ['alpaka', 'katze', 'huhn'].forEach(buddy => {
+            const svg = buddySvgs[buddy].brushing;
+            assert.match(svg, /id="alpaka-brushing"/, `${buddy}: brushing braucht id="alpaka-brushing"`);
+            assert.match(svg, /id="mouth-brushing"/, `${buddy}: brushing braucht id="mouth-brushing"`);
+        });
+    });
+
+    await t.test('Augen sind für die Blinzel-Animation ausgezeichnet', () => {
+        ['alpaka', 'katze', 'huhn'].forEach(buddy => {
+            assert.match(buddySvgs[buddy].idle, /class="buddy-eye"/, `${buddy}: idle braucht buddy-eye`);
+        });
+    });
 });

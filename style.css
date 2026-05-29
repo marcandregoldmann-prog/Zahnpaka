@@ -242,9 +242,9 @@ body.is-paused .alpaka-svg {
     transition: filter 0.3s;
 }
 
-/* Pulsing Dirt (Zahnteufel-Jagd) */
-.dirt-pulse path, .dirt-pulse circle, .dirt-pulse ellipse {
-    animation: dirtPulse 0.8s infinite alternate !important; /* Important to override pause? No, pause should stop it too */
+/* Pulsing Dirt (Zahnteufel-Jagd) – jede Teufel-Gruppe wackelt als Einheit */
+.dirt-pulse > g {
+    animation: dirtPulse 0.8s infinite alternate !important;
     transform-box: fill-box;
     transform-origin: center;
 }
