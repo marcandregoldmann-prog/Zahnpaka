@@ -634,8 +634,8 @@ input[type="text"]::placeholder {
 /* Aktive Zone – sanftes Gold-Leuchten */
 .tooth {
     transition: fill 0.5s, stroke 0.5s, transform 0.3s;
-    fill: #F5F5F5;
-    stroke: #DDD;
+    fill: url(#teethRowGrad);
+    stroke: #C2D2E4;
     stroke-width: 1.5;
 }
 

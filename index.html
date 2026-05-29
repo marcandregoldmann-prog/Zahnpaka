@@ -255,6 +255,15 @@
         <!-- Zahn-Guide -->
         <div class="visual-guide">
             <svg viewBox="0 0 170 85" class="teeth-svg" aria-label="Zahnschema: aktiver Bereich wird hervorgehoben" role="img">
+                <defs>
+                    <linearGradient id="teethRowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#FFFFFF"/>
+                        <stop offset="100%" stop-color="#EAF2FB"/>
+                    </linearGradient>
+                </defs>
+                <!-- Zahnfleisch (hinter den Zähnen) -->
+                <rect x="6" y="0" width="158" height="13" rx="6.5" fill="#F3A7B7"/>
+                <rect x="6" y="57" width="158" height="13" rx="6.5" fill="#F3A7B7"/>
                 <!-- Oben -->
                 <g id="zone-oben">
                     <rect x="10" y="5" width="13" height="20" rx="4" class="tooth"/>
