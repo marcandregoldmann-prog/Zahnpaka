@@ -1,126 +1,117 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { getPhaseIndexForTime, phases, getSpeechForTimer } = require('../phase-utils.js');
+const {
+    brushingPlan,
+    TOTAL_TIME,
+    segmentBoundaries,
+    getSegmentIndexForElapsed,
+    getSegmentIndexForRemaining,
+    getElapsedInSegment,
+    getSegmentProgress,
+    getCueForSegment,
+    getJawLabel,
+} = require('../phase-utils.js');
 
-test('Phase Transitions (KAI Method - 6 Phases)', async (t) => {
-    // Phases:
-    // 0: 180-151 (Kauflächen unten)
-    // 1: 150-121 (Kauflächen oben)
-    // 2: 120-91 (Außenflächen)
-    // 3: 90-41 (Innenflächen)
-    // 4: 40-11 (Zahnteufel-Jagd)
-    // 5: 10-0 (Endspurt)
-
-    await t.test('Phase 0 boundaries (180 to 151)', () => {
-        assert.strictEqual(getPhaseIndexForTime(180), 0, '180 should be Phase 0');
-        assert.strictEqual(getPhaseIndexForTime(160), 0, '160 should be Phase 0');
-        assert.strictEqual(getPhaseIndexForTime(151), 0, '151 should be Phase 0');
+test('Putz-Plan – Struktur & Invarianten', async (t) => {
+    await t.test('8 Segmente, Gesamtdauer 180 s', () => {
+        assert.strictEqual(brushingPlan.length, 8);
+        assert.strictEqual(TOTAL_TIME, 180);
+        assert.strictEqual(brushingPlan.reduce((s, x) => s + x.duration, 0), TOTAL_TIME);
     });
 
-    await t.test('Phase 1 boundaries (150 to 121)', () => {
-        assert.strictEqual(getPhaseIndexForTime(150), 1, '150 should be Phase 1');
-        assert.strictEqual(getPhaseIndexForTime(135), 1, '135 should be Phase 1');
-        assert.strictEqual(getPhaseIndexForTime(121), 1, '121 should be Phase 1');
+    await t.test('Jedes Segment ist vollständig & konsistent', () => {
+        const validJaw = ['oben', 'unten', 'beide'];
+        const validTech = ['scrub', 'circle', 'sweep', 'spit'];
+        brushingPlan.forEach((seg) => {
+            assert.ok(validJaw.includes(seg.jaw), `${seg.id}: gültiger Kiefer`);
+            assert.ok(validTech.includes(seg.technique), `${seg.id}: gültige Technik`);
+            assert.ok(seg.title && seg.title.length > 0, `${seg.id}: Titel`);
+            assert.ok(Array.isArray(seg.cues) && seg.cues.length > 0, `${seg.id}: Tipps`);
+        });
     });
 
-    await t.test('Phase 2 boundaries (120 to 91)', () => {
-        assert.strictEqual(getPhaseIndexForTime(120), 2, '120 should be Phase 2');
-        assert.strictEqual(getPhaseIndexForTime(100), 2, '100 should be Phase 2');
-        assert.strictEqual(getPhaseIndexForTime(91), 2, '91 should be Phase 2');
-    });
-
-    await t.test('Phase 3 boundaries (90 to 41)', () => {
-        assert.strictEqual(getPhaseIndexForTime(90), 3, '90 should be Phase 3');
-        assert.strictEqual(getPhaseIndexForTime(60), 3, '60 should be Phase 3');
-        assert.strictEqual(getPhaseIndexForTime(41), 3, '41 should be Phase 3');
-    });
-
-    await t.test('Phase 4 boundaries (40 to 11)', () => {
-        assert.strictEqual(getPhaseIndexForTime(40), 4, '40 should be Phase 4');
-        assert.strictEqual(getPhaseIndexForTime(20), 4, '20 should be Phase 4');
-        assert.strictEqual(getPhaseIndexForTime(11), 4, '11 should be Phase 4');
-    });
-
-    await t.test('Phase 5 boundaries (10 to 0)', () => {
-        assert.strictEqual(getPhaseIndexForTime(10), 5, '10 should be Phase 5');
-        assert.strictEqual(getPhaseIndexForTime(5), 5, '5 should be Phase 5');
-        assert.strictEqual(getPhaseIndexForTime(0), 5, '0 should be Phase 5');
-    });
-
-    await t.test('Check phase count', () => {
-        assert.strictEqual(phases.length, 6, 'Should have 6 phases defined');
-    });
-
-    await t.test('Edge cases', () => {
-        // Values > 180 or < 0 default to last phase in implementation (usually)
-        // Implementation:
-        // for loop checks if (timer <= p.startAt && timer >= p.endAt)
-        // If not found, returns phases.length - 1 (Phase 5)
-
-        // 200 is not in any range (max is 180), so it falls through to default (5)
-        assert.strictEqual(getPhaseIndexForTime(200), 5, 'Values above 180 default to last phase');
-
-        // -1 is not in any range (min is 0), so it falls through to default (5)
-        assert.strictEqual(getPhaseIndexForTime(-1), 5, 'Negative values default to last phase');
+    await t.test('KAI: Fläche und Technik passen immer zusammen', () => {
+        // Genau das verhindert den gemeldeten Mismatch (Anweisung != Bewegung).
+        const map = { kauflaeche: 'scrub', aussen: 'circle', innen: 'sweep', spucken: 'spit' };
+        brushingPlan.forEach((seg) => {
+            if (map[seg.surface]) {
+                assert.strictEqual(seg.technique, map[seg.surface],
+                    `${seg.id}: Fläche ${seg.surface} muss Technik ${map[seg.surface]} haben`);
+            }
+        });
     });
 });
 
-test('Speech/Tips Rotation', async (t) => {
-    // Phase 0: 180-151. Tips length = 3.
-    // Tips rotate every 10s.
-    // 180 (start) -> elapsed 0 -> index 0
-    // 175 -> elapsed 5 -> index 0
-    // 170 -> elapsed 10 -> index 1
-    // 160 -> elapsed 20 -> index 2
-    // 155 -> elapsed 25 -> index 2
-    // 151 -> elapsed 29 -> index 2 (29/10 = 2.9 -> 2)
-
-    await t.test('Standard rotation in Phase 0', () => {
-        const p0 = phases[0];
-        assert.strictEqual(getSpeechForTimer(180), p0.tips[0], 'Start of phase should show tip 0');
-        assert.strictEqual(getSpeechForTimer(175), p0.tips[0], '5s in should show tip 0');
-        assert.strictEqual(getSpeechForTimer(170), p0.tips[1], '10s in should show tip 1');
-        assert.strictEqual(getSpeechForTimer(160), p0.tips[2], '20s in should show tip 2');
+test('Segment-Index aus verstrichener Zeit', async (t) => {
+    await t.test('Grenzen liegen exakt richtig', () => {
+        assert.strictEqual(getSegmentIndexForElapsed(0), 0);
+        assert.strictEqual(getSegmentIndexForElapsed(24), 0);
+        assert.strictEqual(getSegmentIndexForElapsed(25), 1, '25 s -> Segment 1');
+        assert.strictEqual(getSegmentIndexForElapsed(149), 5);
+        assert.strictEqual(getSegmentIndexForElapsed(150), 6, '150 s -> Jagd');
+        assert.strictEqual(getSegmentIndexForElapsed(170), 7, '170 s -> Ausspucken');
+        assert.strictEqual(getSegmentIndexForElapsed(180), 7);
     });
 
-    await t.test('Rotation with modulo', () => {
-        // Phase 3: 90-41 (duration 49s). Tips length 3.
-        // 90 -> tip 0
-        // 80 -> tip 1
-        // 70 -> tip 2
-        // 60 -> tip 0 (30s elapsed. 30/10 = 3. 3%3 = 0)
-        const p3 = phases[3];
-        assert.strictEqual(getSpeechForTimer(60), p3.tips[0], '30s elapsed in Phase 3 should wrap to tip 0');
+    await t.test('Randfälle clampen auf gültigen Bereich', () => {
+        assert.strictEqual(getSegmentIndexForElapsed(-5), 0);
+        assert.strictEqual(getSegmentIndexForElapsed(9999), brushingPlan.length - 1);
     });
 
-    await t.test('Edge Case: Negative elapsed time (overshoot)', () => {
-        // Case: Default phase (Endspurt, index 5). startAt 10.
-        // If timer is 200. getPhaseIndexForTime returns 5 (default).
-        // Phase 5 startAt 10. Elapsed 10 - 200 = -190.
-        // Logic clamps to 0. So it should return Phase 5 Tip 0.
-        const p5 = phases[5];
-        assert.strictEqual(getSpeechForTimer(200), p5.tips[0], 'Timer 200 (way before start) should fallback to Endspurt tip 0');
+    await t.test('Grenzen entsprechen den kumulierten Dauern', () => {
+        assert.deepStrictEqual(segmentBoundaries(), [25, 50, 75, 100, 125, 150, 170, 180]);
+    });
+});
+
+test('Uhr & Segment bleiben synchron (remaining <-> elapsed)', async (t) => {
+    await t.test('verbleibende Zeit ergibt dasselbe Segment wie verstrichene', () => {
+        for (let elapsed = 0; elapsed <= TOTAL_TIME; elapsed++) {
+            const remaining = TOTAL_TIME - elapsed;
+            assert.strictEqual(
+                getSegmentIndexForRemaining(remaining),
+                getSegmentIndexForElapsed(elapsed),
+                `Desync bei elapsed=${elapsed}`
+            );
+        }
     });
 
-    await t.test('Edge Case: Empty tips array', () => {
-        // Backup tips
-        const originalTips = phases[0].tips;
-        phases[0].tips = [];
+    await t.test('Beispiele am Timer (verbleibende Sekunden)', () => {
+        assert.strictEqual(getSegmentIndexForRemaining(180), 0, 'Start');
+        assert.strictEqual(getSegmentIndexForRemaining(155), 1);
+        assert.strictEqual(getSegmentIndexForRemaining(11), 6, '11 s übrig -> noch Jagd');
+        assert.strictEqual(getSegmentIndexForRemaining(10), 7, '10 s übrig -> Ausspucken');
+        assert.strictEqual(getSegmentIndexForRemaining(0), 7, 'Ende');
+    });
+});
 
-        const result = getSpeechForTimer(180);
-        assert.strictEqual(result, '', 'Should return empty string for empty tips array');
+test('Segment-Fortschritt', async (t) => {
+    await t.test('0 am Segmentanfang, 1 am Segmentende', () => {
+        assert.strictEqual(getSegmentProgress(0), 0);
+        assert.strictEqual(getSegmentProgress(25), 0, 'Anfang Segment 1');
+        assert.strictEqual(getElapsedInSegment(37), 12, '37 s -> 12 s in Segment 1');
+        assert.ok(Math.abs(getSegmentProgress(37) - 12 / 25) < 1e-9);
+        assert.strictEqual(getSegmentProgress(180), 1, 'Ende = voll');
+    });
+});
 
-        // Restore
-        phases[0].tips = originalTips;
+test('Bewegungs-Tipps rotieren, bleiben aber on-message', async (t) => {
+    await t.test('Rotation alle 8 s durch die Tipps des Segments', () => {
+        const seg0 = brushingPlan[0];
+        assert.strictEqual(getCueForSegment(0, 0), seg0.cues[0]);
+        assert.strictEqual(getCueForSegment(0, 7), seg0.cues[0]);
+        assert.strictEqual(getCueForSegment(0, 8), seg0.cues[1]);
+        assert.strictEqual(getCueForSegment(0, 16), seg0.cues[0], 'wrap-around');
     });
 
-    await t.test('Edge Case: Undefined tips', () => {
-        const originalTips = phases[0].tips;
-        phases[0].tips = undefined;
+    await t.test('leere/ungültige Eingaben liefern leeren String', () => {
+        assert.strictEqual(getCueForSegment(999, 0), '');
+    });
+});
 
-        const result = getSpeechForTimer(180);
-        assert.strictEqual(result, '', 'Should return empty string for undefined tips');
-
-        phases[0].tips = originalTips;
+test('Kiefer-Beschriftung passt zum Kiefer', async (t) => {
+    await t.test('oben / unten / beide', () => {
+        assert.strictEqual(getJawLabel('oben'), 'Obere Zähne');
+        assert.strictEqual(getJawLabel('unten'), 'Untere Zähne');
+        assert.strictEqual(getJawLabel('beide'), 'Alle Zähne');
     });
 });

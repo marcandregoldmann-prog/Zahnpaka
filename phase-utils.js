@@ -1,134 +1,142 @@
 /**
- * Zahnputz-Phasen Definitionen und Hilfsfunktionen
+ * Zahnputz-Plan: EINE Wahrheitsquelle für den ganzen Putz-Ablauf.
+ *
+ * Aus diesem Plan werden Uhr, Zahnschema-Markierung, Anweisungstext
+ * UND die Bürsten-Animation abgeleitet – darum können sie nicht mehr
+ * auseinanderlaufen.
+ *
+ * Pädagogik: KAI-Methode (Kauflächen → Außenflächen → Innenflächen),
+ * jeweils unten und oben getrennt, plus eine Teufel-Jagd und Ausspucken.
+ *
+ * Jedes Segment hat:
+ *   duration   – Sekunden
+ *   jaw        – 'oben' | 'unten' | 'beide'  → welche Reihe im Schema leuchtet
+ *   surface    – Fläche (steuert Bürsten-Position)
+ *   technique  – 'scrub' | 'circle' | 'sweep' | 'spit' → Bürsten-Bewegung
+ *   title      – kurze, eindeutige Überschrift (WAS + WO)
+ *   cues       – Bewegungs-Tipps (WIE); rotieren, bleiben aber on-message
+ *   expression – Mimik des Buddys
  */
-
-const phases = [
+const brushingPlan = [
     {
-        startAt: 180,
-        endAt:   151,
-        text:    'Mund weit auf wie ein Löwe! Jetzt schrubben wir unten!',
-        zone:    'zone-unten',
-        zoneLabel: 'Kauflächen (unten)',
-        tips: [
-            'Hin und her, wie ein kleiner Zug! Tschu-tschu! 🚂',
-            'Oh, da ist ein Zahnteufel! Schnell weg damit!',
-            'Bärenstark machst du das!',
-        ],
+        id: 'kau-unten', duration: 25, jaw: 'unten', surface: 'kauflaeche', technique: 'scrub',
+        title: 'Untere Kauflächen',
+        cues: ['Vor und zurück – wie ein kleiner Zug! 🚂', 'Hin und her auf den unteren Kauflächen!'],
         expression: 'encouraging',
     },
     {
-        startAt: 150,
-        endAt:   121,
-        text:    'Mund weit auf wie ein Löwe! Jetzt schrubben wir oben!',
-        zone:    'zone-oben',
-        zoneLabel: 'Kauflächen (oben)',
-        tips: [
-            'Hin und her, wie ein kleiner Zug! Tschu-tschu! 🚂',
-            'Oh, da ist ein Zahnteufel! Schnell weg damit!',
-            'Bärenstark machst du das!',
-        ],
+        id: 'kau-oben', duration: 25, jaw: 'oben', surface: 'kauflaeche', technique: 'scrub',
+        title: 'Obere Kauflächen',
+        cues: ['Jetzt oben – vor und zurück! 🚂', 'Schrubb die oberen Kauflächen, hin und her!'],
         expression: 'encouraging',
     },
     {
-        startAt: 120,
-        endAt:   91,
-        text:    'Zähne zusammenbeißen wie ein Tiger! Wir malen Kreise!',
-        zone:    'zone-oben',
-        zoneLabel: 'Außenflächen',
-        tips: [
-            'Runde Kreise malen, wie beim Karussell fahren! 🎡',
-            'Ui, den Zahnteufeln wird schon ganz schwindelig!',
-            'Super! Weiter so kreisen!',
-        ],
+        id: 'aussen-unten', duration: 25, jaw: 'unten', surface: 'aussen', technique: 'circle',
+        title: 'Untere Außenseiten',
+        cues: ['Kleine Kreise malen! 🎡', 'Runde Kreise außen unten – wie ein Karussell!'],
         expression: 'happy',
     },
     {
-        startAt: 90,
-        endAt:   41,
-        text:    'Jetzt fegen wir die Zahnteufel von drinnen nach draußen!',
-        zone:    'zone-unten',
-        zoneLabel: 'Innenflächen (unten & oben)',
-        tips: [
-            'Wir fegen mit dem Besen von Rot nach Weiß! 🧹',
-            'Da hat sich noch ein Teufel versteckt! Schrubb ihn weg!',
-            'Deine Zähne leuchten schon richtig!',
-        ],
+        id: 'aussen-oben', duration: 25, jaw: 'oben', surface: 'aussen', technique: 'circle',
+        title: 'Obere Außenseiten',
+        cues: ['Kreise oben außen! 🎡', 'Schöne Kreise – immer schön rundherum!'],
+        expression: 'happy',
+    },
+    {
+        id: 'innen-unten', duration: 25, jaw: 'unten', surface: 'innen', technique: 'sweep',
+        title: 'Untere Innenseiten',
+        cues: ['Von Rot nach Weiß fegen! 🧹', 'Innen unten – vom Zahnfleisch wegfegen!'],
         expression: 'proud',
     },
     {
-        startAt: 40,
-        endAt:   11,
-        text:    'Jetzt die Zahnteufel-Jagd! Putz dort, wo du noch Teufel siehst!',
-        zone:    'zone-oben',
-        zoneLabel: 'Zahnteufel-Jagd!',
-        tips: [
-            'Du bist der beste Zahnteufel-Jäger! 🦸‍♂️',
-            'Alle Teufel flüchten jetzt!',
-            'Gleich haben wir es geschafft!',
-        ],
+        id: 'innen-oben', duration: 25, jaw: 'oben', surface: 'innen', technique: 'sweep',
+        title: 'Obere Innenseiten',
+        cues: ['Oben innen – nach unten fegen! 🧹', 'Fege die oberen Innenseiten sauber!'],
+        expression: 'proud',
+    },
+    {
+        id: 'jagd', duration: 20, jaw: 'beide', surface: 'jagd', technique: 'circle',
+        title: 'Zahnteufel-Jagd!',
+        cues: ['Jag die letzten Zahnteufel! 🦸', 'Überall noch mal drüber – schwupp!'],
         expression: 'surprised',
     },
     {
-        startAt: 10,
-        endAt:   0,
-        text:    'Gleich geschafft! Spuck den Schaum aus wie ein Drache! 🐉',
-        zone:    'zone-unten',
-        zoneLabel: 'Endspurt!',
-        tips: [
-            'Ausspucken! 🫧',
-            'Zahnbürste auswaschen!',
-            'Toll gemacht!',
-        ],
+        id: 'spucken', duration: 10, jaw: 'beide', surface: 'spucken', technique: 'spit',
+        title: 'Ausspucken!',
+        cues: ['Spuck den Schaum aus – wie ein Drache! 🐉', 'Bürste auswaschen – fast fertig!'],
         expression: 'happy',
     },
 ];
 
-/**
- * Ermittelt den Index der aktuellen Phase basierend auf der Timer-Zeit.
- * @param {number} timer - Verbleibende Zeit in Sekunden.
- * @returns {number} - Index der Phase im phases-Array.
- */
-function getPhaseIndexForTime(timer) {
-    for (let i = 0; i < phases.length; i++) {
-        const p = phases[i];
-        // Fix: >= p.endAt statt > p.endAt, um Grenzwerte einzuschließen
-        if (timer <= p.startAt && timer >= p.endAt) return i;
+/** Gesamtdauer in Sekunden – abgeleitet, kein magisches 180 mehr. */
+const TOTAL_TIME = brushingPlan.reduce((sum, seg) => sum + seg.duration, 0);
+
+/** Kumulative End-Zeitpunkte (verstrichene Sekunden) je Segment. */
+function segmentBoundaries() {
+    let acc = 0;
+    return brushingPlan.map((seg) => (acc += seg.duration));
+}
+
+/** Segment-Index für verstrichene Sekunden (0 … TOTAL_TIME). */
+function getSegmentIndexForElapsed(elapsed) {
+    const e = Math.max(0, elapsed);
+    const bounds = segmentBoundaries();
+    for (let i = 0; i < bounds.length; i++) {
+        if (e < bounds[i]) return i;
     }
-    // Default zur letzten Phase (meistens 0 Sekunden erreicht)
-    return phases.length - 1;
+    return brushingPlan.length - 1;
+}
+
+/** Segment-Index für die VERBLEIBENDE Zeit (so tickt der Timer). */
+function getSegmentIndexForRemaining(remaining) {
+    return getSegmentIndexForElapsed(TOTAL_TIME - remaining);
+}
+
+/** Verstrichene Sekunden INNERHALB des aktuellen Segments. */
+function getElapsedInSegment(elapsed) {
+    const e = Math.max(0, Math.min(TOTAL_TIME, elapsed));
+    const i = getSegmentIndexForElapsed(e);
+    const bounds = segmentBoundaries();
+    const start = i === 0 ? 0 : bounds[i - 1];
+    return e - start;
+}
+
+/** Fortschritt 0..1 innerhalb des aktuellen Segments. */
+function getSegmentProgress(elapsed) {
+    const i = getSegmentIndexForElapsed(elapsed);
+    return Math.min(1, getElapsedInSegment(elapsed) / brushingPlan[i].duration);
 }
 
 /**
- * Ermittelt den aktuellen Tipp/Spruch basierend auf der Zeit.
- * Rotiert alle 10 Sekunden durch die Tipps der aktuellen Phase.
- * @param {number} timer - Verbleibende Zeit in Sekunden.
- * @returns {string} - Der anzuzeigende Tipp.
+ * Bewegungs-Tipp für ein Segment. Rotiert alle 8 s durch die cues,
+ * bleibt dabei aber immer beim selben Bewegungs-Thema (kein Zufallslob,
+ * das die Anweisung überschreibt).
  */
-function getSpeechForTimer(timer) {
-    const phaseIdx = getPhaseIndexForTime(timer);
-    const phase = phases[phaseIdx];
-
-    if (!phase || !phase.tips || phase.tips.length === 0) {
-        return '';
-    }
-
-    // Zeit seit Beginn der Phase
-    let tipElapsed = phase.startAt - timer;
-
-    // Negative Zeit (z.B. minimaler Overshoot) abfangen
-    if (tipElapsed < 0) {
-        tipElapsed = 0;
-    }
-
-    // Jede 10 Sekunden rotieren
-    // Beispiel: start=180, timer=175 -> elapsed=5 -> index=0
-    //           start=180, timer=170 -> elapsed=10 -> index=1
-    const tipIndex = Math.floor(tipElapsed / 10) % phase.tips.length;
-
-    return phase.tips[tipIndex];
+function getCueForSegment(segmentIndex, elapsedInSegment) {
+    const seg = brushingPlan[segmentIndex];
+    if (!seg || !seg.cues || seg.cues.length === 0) return '';
+    const idx = Math.floor(Math.max(0, elapsedInSegment) / 8) % seg.cues.length;
+    return seg.cues[idx];
 }
 
-// Export für Node.js Tests
+/** Schema-Beschriftung passend zum Kiefer. */
+function getJawLabel(jaw) {
+    if (jaw === 'oben') return 'Obere Zähne';
+    if (jaw === 'unten') return 'Untere Zähne';
+    return 'Alle Zähne';
+}
+
+// Export für Node.js-Tests
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { phases, getPhaseIndexForTime, getSpeechForTimer };
+    module.exports = {
+        brushingPlan,
+        TOTAL_TIME,
+        segmentBoundaries,
+        getSegmentIndexForElapsed,
+        getSegmentIndexForRemaining,
+        getElapsedInSegment,
+        getSegmentProgress,
+        getCueForSegment,
+        getJawLabel,
+    };
 }

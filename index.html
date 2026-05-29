@@ -157,7 +157,7 @@
 
         <!-- Kopfzeile mit Fortschritt -->
         <div class="status-bar">
-            <div id="progress-dots" role="progressbar" aria-label="Fortschritt" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0"></div>
+            <div id="progress-dots" role="progressbar" aria-label="Fortschritt" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"></div>
         </div>
 
         <!-- Buddy – Hauptfigur, groß und prominent -->
@@ -210,6 +210,23 @@
 
                     <!-- Timer Overlay -->
                     <div id="timer-display" role="status" aria-live="off" aria-label="Zeit verbleibend">03:00</div>
+
+                    <!-- Demonstrierende Zahnbürste: führt die richtige Bewegung vor -->
+                    <div id="demo-brush" class="demo-brush" aria-hidden="true">
+                        <div class="demo-brush-motion">
+                            <svg viewBox="0 0 40 70" class="demo-brush-svg" role="img" aria-label="Zahnbürste">
+                                <rect x="16" y="2"  width="8"  height="42" rx="4" fill="#4A90E2"/>
+                                <rect x="10" y="40" width="20" height="12" rx="4" fill="#A3D8F4"/>
+                                <g stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round">
+                                    <line x1="13" y1="52" x2="13" y2="62"/>
+                                    <line x1="17" y1="52" x2="17" y2="63"/>
+                                    <line x1="21" y1="52" x2="21" y2="63"/>
+                                    <line x1="25" y1="52" x2="25" y2="62"/>
+                                    <line x1="28" y1="52" x2="28" y2="61"/>
+                                </g>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

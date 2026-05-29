@@ -9,9 +9,9 @@
 const state = {
     name: 'Held',
     buddy: localStorage.getItem('zahnpaka-buddy') || 'alpaka',
-    timer: 180,
+    timer: (typeof TOTAL_TIME === 'number') ? TOTAL_TIME : 180,
     interval: null,
-    currentPhaseIndex: -1,
+    currentSegmentIndex: -1,
     isPaused: false,
     soundEnabled: localStorage.getItem('zahnpaka-sound') !== 'muted',
     introStep: 0,
@@ -28,34 +28,10 @@ let cachedBuddyContainerBrushing = null;
 /* ---- ZAHNPUTZ-PHASEN ---- */
 // (Phasen sind jetzt in phase-utils.js definiert)
 
-/* ---- ERMUTIGUNGS-PHRASEN ---- */
-const encouragementMessages = {
-    general: [
-        'Das machst du richtig toll! ⭐',
-        'Wow, wie das schon glänzt! ✨',
-        'Du bist ein echter Zahnputz-Profi! 🏆',
-        'Deine Zähne freuen sich so sehr! 🦷',
-        'Super Putzmeister! 🌟',
-        'Die Zahnteufel fliehen schon! 👿💨',
-        'Glanz und Glimmer, weiter so! 💎',
-        'Du machst das wunderschön! 🎉',
-        'Alpi ist so stolz auf dich! 🦙',
-        'Strahlende Zähne kommen! ✨🦷',
-        'Was für ein Putztalent! 🥇',
-        'Die anderen Kinder wären neidisch! 😄',
-    ],
-    phaseSpecific: {
-        0: ['Die Kauflächen werden blitzsauber!', 'Tschu-tschu, gutes Putzen! 🚂'],
-        1: ['Schöne Kreise – perfekt!', 'Die Außenseiten glänzen schon! ✨'],
-        2: ['Innenseiten? Kein Problem! 💪', 'Sehr gründlich, super!'],
-        3: ['Letzter Glanz! Fast geschafft! 🌟', 'Noch ein bisschen... gleich fertig!'],
-    },
-    byName: (name) => [
-        `${name}, du bist fantastisch! 🎉`,
-        `${name}, so saubere Zähne! ⭐`,
-        `${name}, dein Freund ist so stolz! ❤️`,
-    ],
-};
+/* ---- LOB ----
+   Lob ist jetzt rein visuell/akustisch (Buddy tanzt + Klang + Funkeln)
+   und überschreibt NICHT mehr die eigentliche Anweisung in der Blase.
+   Die Anweisung bleibt darum dauerhaft sichtbar. */
 
 /* ---- ZAHNTEUFEL-INTRO-TEXTE ---- */
 const introTexts = [
@@ -554,7 +530,8 @@ function showScreen(id) {
 /* ============================================
    FORTSCHRITTS-DOTS
    ============================================ */
-const TOTAL_DOTS = 12;
+// Ein Punkt je Putz-Schritt – aus dem Plan abgeleitet.
+const TOTAL_DOTS = (typeof brushingPlan !== 'undefined') ? brushingPlan.length : 8;
 let cachedProgressDots = [];
 
 function initProgressDots() {
@@ -569,14 +546,19 @@ function initProgressDots() {
         container.appendChild(dot);
         cachedProgressDots.push(dot);
     }
+    container.setAttribute('aria-valuemin', '0');
+    container.setAttribute('aria-valuemax', String(TOTAL_DOTS));
     container.setAttribute('aria-valuenow', '0');
 }
 
 function updateProgressDots() {
-    const elapsed = 180 - state.timer;
-    const completed = Math.floor(elapsed / (180 / TOTAL_DOTS));
+    const elapsed = TOTAL_TIME - state.timer;
+    const current = getSegmentIndexForElapsed(elapsed);
+    const allDone = state.timer <= 0;
+    const doneCount = allDone ? TOTAL_DOTS : current;
+
     const container = document.getElementById('progress-dots');
-    if (container) container.setAttribute('aria-valuenow', completed);
+    if (container) container.setAttribute('aria-valuenow', String(doneCount));
 
     // Fallback falls Array leer ist (sollte via initProgressDots gefüllt sein)
     if (cachedProgressDots.length === 0) {
@@ -589,10 +571,10 @@ function updateProgressDots() {
     for (let i = 0; i < TOTAL_DOTS; i++) {
         const dot = cachedProgressDots[i];
         if (!dot) continue;
-        if (i < completed) {
+        if (i < doneCount) {
             dot.className = 'progress-dot done';
             dot.textContent = '⭐';
-        } else if (i === completed) {
+        } else if (i === current && !allDone) {
             dot.className = 'progress-dot active';
             dot.textContent = '';
         } else {
@@ -603,147 +585,140 @@ function updateProgressDots() {
 }
 
 /* ============================================
-   ZAHN-ZONEN
+   ZAHN-SCHEMA: KIEFER MARKIEREN
+   Markiert die zum Segment passende Reihe (oben/unten/beide).
+   Das Label wird direkt aus dem Kiefer abgeleitet – nie mehr
+   der alte Bug, bei dem phases.find() das falsche Label lieferte.
    ============================================ */
-function highlightZone(zoneId) {
-    ['zone-oben', 'zone-unten'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('active-zone', 'done-zone');
-    });
-    const active = document.getElementById(zoneId);
-    if (active) active.classList.add('active-zone');
+function highlightJaw(jaw) {
+    const oben  = document.getElementById('zone-oben');
+    const unten = document.getElementById('zone-unten');
+    [oben, unten].forEach(el => { if (el) el.classList.remove('active-zone', 'done-zone'); });
+
+    if ((jaw === 'oben'  || jaw === 'beide') && oben)  oben.classList.add('active-zone');
+    if ((jaw === 'unten' || jaw === 'beide') && unten) unten.classList.add('active-zone');
 
     const zoneLabel = document.getElementById('zone-label');
-    const phase = phases.find(p => p.zone === zoneId);
-    if (zoneLabel && phase) zoneLabel.textContent = phase.zoneLabel;
+    if (zoneLabel) zoneLabel.textContent = getJawLabel(jaw);
+}
+
+/* Bürsten-Animation auf den passenden Technik-/Flächen-Modus setzen. */
+let cachedDemoBrush = null;
+function setBrushMode(segment) {
+    if (!cachedDemoBrush || !cachedDemoBrush.isConnected) {
+        cachedDemoBrush = document.getElementById('demo-brush');
+    }
+    if (!cachedDemoBrush) return;
+    cachedDemoBrush.className = 'demo-brush surf-' + segment.surface + ' tech-' + segment.technique;
 }
 
 /* ============================================
-   PHASEN-MANAGEMENT
+   SEGMENT-MANAGEMENT
    ============================================ */
-function getCurrentPhaseIndex() {
-    return getPhaseIndexForTime(state.timer);
+function getCurrentSegmentIndex() {
+    return getSegmentIndexForRemaining(state.timer);
 }
 
-function onPhaseChange(newIndex) {
-    const phase = phases[newIndex];
-    // Haupttext in die Sprechblase (zum Vorlesen)
-    setSpeechBubble(phase.text);
-    // Erster Tipp in die Überschrift
-    document.getElementById('instruction-text').textContent = phase.tips[0];
+/* Wendet ein Segment vollständig an: Überschrift (WAS+WO),
+   Bewegungs-Tipp (WIE), Kiefer-Markierung, Bürsten-Bewegung,
+   Mimik und Klang – alles aus EINER Quelle, also immer synchron. */
+function applySegment(index) {
+    const seg = brushingPlan[index];
+    if (!seg) return;
 
-    highlightZone(phase.zone);
-    setExpression(phase.expression || 'encouraging');
+    const instrEl = document.getElementById('instruction-text');
+    if (instrEl) instrEl.textContent = seg.title;
+
+    setSpeechBubble(getCueForSegment(index, 0));
+
+    highlightJaw(seg.jaw);
+    setBrushMode(seg);
+    setExpression(seg.expression || 'encouraging');
     triggerAlpacaReaction('phaseChange');
     soundManager.phaseStart();
 }
 
 /* ============================================
-   ZUFÄLLIGE ERMUTIGUNG
+   LOB – rein visuell/akustisch, ohne Text-Überschreiben
    ============================================ */
-function saySomethingRandom() {
-    // Zufällige Sprechblasen-Inhalte zusätzlich zum Haupttext
-    // Diese Funktion überschreibt temporär den Haupttext in der Bubble
-    // Das ist okay, solange der Haupttext beim Phasenwechsel wiederkommt.
-
-    const phaseIdx = getCurrentPhaseIndex();
-    const msgs     = encouragementMessages;
-    const pool     = [
-        ...msgs.general,
-        ...(msgs.phaseSpecific[phaseIdx] || []),
-        ...(state.name !== 'Held' ? msgs.byName(state.name) : []),
-    ];
-    const text = pool[Math.floor(Math.random() * pool.length)];
-    setSpeechBubble(text);
-    triggerAlpacaReaction('encouragement');
+function cheer() {
+    triggerAlpacaReaction('praise');  // Buddy ist stolz + Lob-Klang
+    createSparkle();
+    setTimeout(createSparkle, 120);
 }
 
 /* ============================================
    DISPLAY-UPDATE
    ============================================ */
 function updateDisplay() {
-    // Timer
+    // Timer (zählt runter)
     const mins = Math.floor(state.timer / 60);
     const secs = state.timer % 60;
-    document.getElementById('timer-display').textContent =
-        `${mins}:${secs.toString().padStart(2, '0')}`;
+    const timerEl = document.getElementById('timer-display');
+    if (timerEl) timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
 
-    // Tipp rotieren (in instruction-text statt Bubble)
-    const phaseIdx = getCurrentPhaseIndex();
-    if (phaseIdx >= 0) {
-        const currentTip = getSpeechForTimer(state.timer);
-        const instrEl = document.getElementById('instruction-text');
-        if (instrEl && currentTip && instrEl.textContent !== currentTip) {
-            instrEl.textContent = currentTip;
+    const elapsed = TOTAL_TIME - state.timer;
+    const segIdx = getSegmentIndexForElapsed(elapsed);
+
+    // Segment-Wechsel? -> Überschrift, Tipp, Schema, Bürste, Mimik synchron neu setzen
+    if (segIdx !== state.currentSegmentIndex) {
+        state.currentSegmentIndex = segIdx;
+        applySegment(segIdx);
+    } else {
+        // Innerhalb des Segments: nur den Bewegungs-Tipp sanft rotieren (bleibt on-message)
+        const cue = getCueForSegment(segIdx, getElapsedInSegment(elapsed));
+        const speechEl = document.getElementById('speech-text');
+        if (speechEl && cue && speechEl.textContent !== cue) {
+            setSpeechBubble(cue);
         }
     }
 
-    // Fortschritts-Dots
+    // Fortschritts-Dots (ein Punkt je Segment)
     updateProgressDots();
 
-    // Zahn-Fortschritt (Dreck ausblenden)
-    const totalTime = 180;
-    const progress = (totalTime - state.timer) / totalTime; // 0..1
-    const dirtGeneral = document.getElementById('tooth-dirt-general');
-    const dirtStubborn = document.getElementById('tooth-dirt-stubborn');
-    const sparklesEl = document.getElementById('tooth-sparkles');
+    // Zahn sauber putzen – segment-/fortschrittsbasiert, keine magischen Zahlen
+    updateToothCleanliness(elapsed, segIdx);
 
+    // Lob alle 20 s – rein visuell, überschreibt die Anweisung nicht
+    if (state.timer > 5 && state.timer < TOTAL_TIME && state.timer % 20 === 0) {
+        cheer();
+    }
+    // Sanfter Tick alle 30 s
+    if (state.timer % 30 === 0 && state.timer > 0) {
+        soundManager.tick();
+    }
+}
+
+/* Belag & Funkeln aus Gesamtfortschritt und aktuellem Segment ableiten. */
+function updateToothCleanliness(elapsed, segIdx) {
+    const overall = elapsed / TOTAL_TIME; // 0..1
+    const seg = brushingPlan[segIdx];
+    const dirtGeneral  = document.getElementById('tooth-dirt-general');
+    const dirtStubborn = document.getElementById('tooth-dirt-stubborn');
+    const sparklesEl   = document.getElementById('tooth-sparkles');
+
+    // Allgemeiner Belag: gleichmäßig ausblenden, bei ~85% komplett sauber
     if (dirtGeneral) {
-        // Opazität von 1 (dreckig) auf 0 (sauber)
-        // Wir lassen es etwas früher sauber aussehen (bei 90%)
-        let opacity = 1 - (progress * 1.1);
-        if (opacity < 0) opacity = 0;
-        dirtGeneral.style.opacity = opacity;
+        dirtGeneral.style.opacity = Math.max(0, 1 - overall / 0.85);
     }
 
+    // Hartnäckige Teufel: sitzen bis zur Jagd, werden DORT bejagt, sind beim Ausspucken weg
     if (dirtStubborn) {
-        // Hartnäckige Teufel: Bleiben bis Sekunde 11 (Ende Phase 5)
-        // Phase 5: 40s - 11s (Teufel-Jagd)
-        if (state.timer > 11) {
-            dirtStubborn.style.opacity = 0.8;
-            if (state.timer <= 40) {
-                dirtStubborn.classList.add('dirt-pulse');
-            } else {
-                dirtStubborn.classList.remove('dirt-pulse');
-            }
+        if (seg && seg.id === 'jagd') {
+            dirtStubborn.style.opacity = Math.max(0, 0.8 * (1 - getSegmentProgress(elapsed)));
+            dirtStubborn.classList.add('dirt-pulse');
+        } else if (seg && seg.id === 'spucken') {
+            dirtStubborn.style.opacity = 0;
+            dirtStubborn.classList.remove('dirt-pulse');
         } else {
-            // Ab Sekunde 11 schnell ausblenden
-            // Wir haben 10 Sekunden bis 0.
-            // 11s -> 1, 0s -> 0? Oder schneller?
-            // Sagen wir in 5 Sekunden weg (11s -> 6s)
-            let remaining = state.timer;
-            let subOpacity = remaining / 6;
-            if (subOpacity > 1) subOpacity = 1;
-            if (subOpacity < 0) subOpacity = 0;
-            dirtStubborn.style.opacity = subOpacity;
+            dirtStubborn.style.opacity = 0.8;
             dirtStubborn.classList.remove('dirt-pulse');
         }
     }
 
+    // Funkeln im Endspurt (Ausspucken)
     if (sparklesEl) {
-        // Sparkles erst am Ende einblenden
-        if (progress > 0.95) {
-            sparklesEl.style.opacity = 1;
-        } else {
-            sparklesEl.style.opacity = 0;
-        }
-    }
-
-    // Phase prüfen
-    const newPhaseIdx = getCurrentPhaseIndex();
-    if (newPhaseIdx !== state.currentPhaseIndex) {
-        state.currentPhaseIndex = newPhaseIdx;
-        onPhaseChange(newPhaseIdx);
-    }
-
-    // Alle 25s Ermutigung
-    if (state.timer % 25 === 0 && state.timer > 10 && state.timer < 175) {
-        saySomethingRandom();
-    }
-
-    // Alle 30s sanfter Tick
-    if (state.timer % 30 === 0 && state.timer > 0) {
-        soundManager.tick();
+        sparklesEl.style.opacity = (seg && seg.id === 'spucken') ? 1 : 0;
     }
 }
 
@@ -811,8 +786,8 @@ function togglePause() {
 }
 
 function startBrushing() {
-    state.timer = 180;
-    state.currentPhaseIndex = -1;
+    state.timer = TOTAL_TIME;
+    state.currentSegmentIndex = -1;
     state.isPaused = false;
     document.body.classList.remove('is-paused'); // Sicherstellen, dass Pause weg ist
 
@@ -828,18 +803,8 @@ function startBrushing() {
     initProgressDots();
     setExpression('encouraging');
 
-    // Start-Zustand:
-    // Haupttext (Bubble): Erste Anweisung
-    // Überschrift (Instruction): Erster Tipp oder "Bereit?"
-
-    // Wir holen uns Phase 0
-    const phase0 = phases[0];
-    setSpeechBubble(phase0.text);
-    document.getElementById('instruction-text').textContent = 'Bist du bereit?';
-
-    highlightZone(phase0.zone);
-
-    // Erster Aufruf sofort
+    // Erster Aufruf setzt Segment 0 (updateDisplay erkennt den Wechsel von -1)
+    // und füllt Überschrift, Sprechblase, Schema und Bürste synchron.
     updateDisplay();
     startTimerLoop();
 }
